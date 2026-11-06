@@ -87,7 +87,7 @@ def find_sectors(description):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — BẢN THỬ NGHIỆM')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — BẢN THỬ NGHIỆM 0.4')
         self.geometry('1180x790')
         self.minsize(960, 640)
         self.con = connect()
@@ -161,6 +161,7 @@ class App(tk.Tk):
         ttk.Button(controls,text='Xem hướng dẫn nghiệp vụ',command=self.suggest).pack(side='left')
         ttk.Button(controls,text='Gợi ý mã ngành từ diễn giải',command=self.suggest_sector).pack(side='left',padx=8)
         ttk.Button(controls,text='Kiểm tra và lưu dự thảo',command=self.save_voucher).pack(side='left',padx=8)
+        ttk.Button(controls,text='Tạo phiếu từ nghiệp vụ',command=self.entry_to_forms).pack(side='left',padx=8)
         right=ttk.LabelFrame(main,text='Căn cứ và lưu ý kiểm soát',padding=12);right.pack(side='left',fill='both',expand=True,padx=(16,0))
         self.guidance=tk.Text(right,wrap='word',width=44,height=25,font=('Segoe UI',10))
         self.guidance.pack(fill='both',expand=True)
@@ -279,6 +280,7 @@ class App(tk.Tk):
         ttk.Button(bar,text='Làm mới',command=self.refresh_vouchers).pack(side='left')
         ttk.Button(bar,text='Xuất Excel (.xlsx)',command=self.export_xlsx).pack(side='left',padx=8)
         ttk.Button(bar,text='Xuất phiếu PDF (dự thảo)',command=self.export_pdf).pack(side='left')
+        ttk.Button(bar,text='Tạo phiếu từ dòng đã chọn',command=self.history_to_forms).pack(side='left',padx=8)
         ttk.Button(bar,text='Xóa chứng từ dự thảo',command=self.delete_voucher).pack(side='right')
 
     def refresh_vouchers(self):
@@ -383,6 +385,7 @@ class App(tk.Tk):
         ttk.Button(bar,text='Thêm dòng',command=self.batch_add).pack(side='left')
         ttk.Button(bar,text='Xóa dòng đã chọn',command=self.batch_remove).pack(side='left',padx=6)
         ttk.Button(bar,text='Xuất đồng thời 3 bảng Excel',command=self.batch_export).pack(side='left',padx=6)
+        ttk.Button(bar,text='Chọn mẫu C6 / QĐ / PL để xuất',command=self.batch_to_forms).pack(side='left',padx=6)
         cols=tuple(BATCH_FIELDS)
         self.batch_tree=ttk.Treeview(self.tab_batch,columns=cols,show='headings',height=12)
         for k in cols:
@@ -424,6 +427,64 @@ class App(tk.Tk):
             paths,total=export_package(folder,self.commune_var.get().split(' | ')[0],year,self.batch_meta['decision'].get(),self.batch_meta['decision_date'].get(),self.batch_rows)
             messagebox.showinfo('Đã tạo 3 bảng dự thảo',f'Tổng tiền: {total:,} VND\n\n'+ '\n'.join(str(p) for p in paths)+'\n\nCần kiểm tra, hoàn thiện theo mẫu chính thức trước khi gửi KBNN.')
         except Exception as e:messagebox.showerror('Không xuất được',str(e))
+
+    def entry_to_forms(self):
+        data={k:v.get().strip() for k,v in self.vars.items()}
+        try:
+            amount=int(data['amount'].replace(',','').replace('.','').replace(' ',''))
+            if amount<=0:raise ValueError()
+        except ValueError:
+            return messagebox.showerror('So tien','Can nhap so tien nguyen duong truoc khi tao phieu.')
+        row={'don_vi':'','qhns':'','chuong':data['chapter'],'loai':data['sector_type'],
+             'khoan':data['sector_item'],'nguon':data['source_code'],
+             'noi_dung':data['description'],'so_tien':amount}
+        self.choose_forms([row],data['date'][:4],'',data['date'])
+
+    def history_to_forms(self):
+        data=self.selected_voucher()
+        if not data:return
+        row={'don_vi':'','qhns':'','chuong':data['chapter'],'loai':data['sector_type'],
+             'khoan':data['sector_item'],'nguon':data['source_code'],
+             'noi_dung':data['description'],'so_tien':data['amount']}
+        self.choose_forms([row],data['year'],'',data['date'])
+
+    def batch_to_forms(self):
+        self.choose_forms(self.batch_rows,self.batch_meta['year'].get(),
+                          self.batch_meta['decision'].get(),self.batch_meta['decision_date'].get())
+
+    def choose_forms(self,rows,year,decision,decision_date):
+        from form_export import FORM_NAMES, export_selected
+        if not self.commune_id():return messagebox.showwarning('Chua chon xa','Chon xa/phuong truoc.')
+        if not rows:return messagebox.showwarning('Chua co du lieu','Can co it nhat mot dong nghiep vu.')
+        win=tk.Toplevel(self);win.title('Tao phieu tu nghiep vu - ban du thao 0.4');win.geometry('670x570')
+        win.transient(self);win.grab_set()
+        ttk.Label(win,text='CHON CAC MAU CAN TAO',font=('Segoe UI',14,'bold')).pack(anchor='w',padx=18,pady=(16,5))
+        ttk.Label(win,text='CAC FILE XUAT LA BANG DU THAO DOI CHIEU, CHUA PHAI MAU CHUAN TT26 / KBNN.',foreground='#9C321A',wraplength=620).pack(anchor='w',padx=18,pady=5)
+        flags={code:tk.BooleanVar(value=(code in ('C601','C602','C603','C604'))) for code in FORM_NAMES}
+        for code,name in FORM_NAMES.items():
+            ttk.Checkbutton(win,text=code+' — '+name,variable=flags[code]).pack(anchor='w',padx=22,pady=5)
+        info=ttk.Frame(win);info.pack(fill='x',padx=18,pady=10)
+        vars_={'year':tk.StringVar(value=str(year)),'decision':tk.StringVar(value=str(decision)),
+               'decision_date':tk.StringVar(value=str(decision_date))}
+        for i,(k,label) in enumerate([('year','Nam NS'),('decision','So quyet dinh'),('decision_date','Ngay QD')]):
+            ttk.Label(info,text=label).grid(row=i,column=0,sticky='w',pady=4)
+            ttk.Entry(info,textvariable=vars_[k],width=32).grid(row=i,column=1,sticky='w',padx=10,pady=4)
+        def go():
+            selected=[c for c,v in flags.items() if v.get()]
+            if not selected:return messagebox.showwarning('Chua chon','Chon it nhat mot mau.',parent=win)
+            try:
+                y=int(vars_['year'].get());assert 2000<=y<=2100
+                if vars_['decision_date'].get():datetime.strptime(vars_['decision_date'].get(),'%Y-%m-%d')
+            except (ValueError,AssertionError):return messagebox.showerror('Thong tin','Kiem tra nam va ngay YYYY-MM-DD.',parent=win)
+            folder=filedialog.askdirectory(parent=win,title='Chon thu muc luu cac bang du thao')
+            if not folder:return
+            try:
+                paths,total=export_selected(folder,self.commune_var.get().split(' | ')[0],y,
+                    vars_['decision'].get(),vars_['decision_date'].get(),rows,selected)
+                win.destroy();messagebox.showinfo('Da xuat ban du thao',f'{len(paths)} file | Tong {total:,} VND\n\n'+
+                    '\n'.join(str(p) for p in paths)+'\n\nChua phai chung tu chinh thuc.')
+            except Exception as exc:messagebox.showerror('Loi xuat',str(exc),parent=win)
+        ttk.Button(win,text='Xuat cac bang DU THAO Excel da chon',command=go).pack(pady=14)
 
     def make_guide(self):
         txt=tk.Text(self.tab_guide,wrap='word',font=('Segoe UI',11),padx=15,pady=12)

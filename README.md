@@ -25,3 +25,16 @@ Dữ liệu lưu trong thư mục `TroLyDuToanXa` của tài khoản Windows, kh
 - Trong tab nhập nghiệp vụ, bấm **Gợi ý mã ngành từ diễn giải**, sau đó chọn mã và **Đưa mã Loại / Khoản vào phiếu**.
 - Dữ liệu Loại/Khoản hiện là **danh mục mẫu có giới hạn**; chưa bao gồm toàn bộ Phụ lục II hoặc các phần Chương, Mục/Tiểu mục. Không tự coi kết quả là định khoản chính thức.
 - Để có Setup.exe: build trên Windows 10/11 x64 bằng TAO_SETUP_TREN_WINDOWS.bat hoặc GitHub Actions. ZIP này **không chứa Setup.exe đã biên dịch**.
+
+
+## Cap nhat 0.4 - TAO PHIEU TU NGHIEP VU (BAN DU THAO)
+
+- Nhap nghiep vu -> Tao phieu tu nghiep vu.
+- Lich su -> chon dong -> Tao phieu tu dong da chon.
+- Bo 3 chung tu -> Chon mau C6 / QD / PL de xuat.
+- Chon doc lap C601, C602, C603, C604, QDC (Mau C), PL47, PL48.
+- Xuat file Excel co dong chi tiet, tong cong va canh bao ban du thao.
+- QUAN TRONG: Cac file QDC, PL47, PL48 va C6 hien la bang doi chieu noi bo,
+  KHONG phai bieu mau chinh thuc theo TT26 hoac Kho bac.
+- Chua hoan thanh anh xa tung o vao bieu mau goc va chua kiem thu tren Windows.
+- GitHub Actions van build Setup.exe nhu truoc.
