@@ -2,6 +2,9 @@
 import csv
 import unicodedata
 import json
+import os
+import sys
+import shutil
 import sqlite3
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -24,6 +27,8 @@ def connect():
         budget_type TEXT, chapter TEXT, sector_type TEXT, sector_item TEXT, econ_item TEXT,
         source_code TEXT, status TEXT NOT NULL DEFAULT 'DỰ THẢO', legal_note TEXT,
         FOREIGN KEY(commune_id) REFERENCES communes(id))''')
+    if 'origin' not in [c[1] for c in con.execute('PRAGMA table_info(vouchers)')]:
+        con.execute("ALTER TABLE vouchers ADD COLUMN origin TEXT DEFAULT ''")
     con.commit()
     return con
 
@@ -70,6 +75,23 @@ SECTORS = [
  ('100','104','Nghiên cứu công nghệ chiến lược','công nghệ chiến lược'),
 ]
 
+# Các tình huống đã trích từ CV 15602 và tài liệu nhập cấp 0; ngoài các tình huống này không đoán định khoản.
+ORIGIN_RULES={
+ 'Giao đầu năm / thường xuyên':{'debit':'9213','credit':'9111','guide':'Ví dụ nhập cấp 0 chi thường xuyên: Nợ 9213 / Có 9111. Căn cứ hướng dẫn phương pháp kế toán tại CV 15602; chỉ áp dụng khi đúng bản chất nguồn và cấp.'},
+ 'Tăng thu':{'debit':'9213','credit':'9151','guide':'Ví dụ nguồn tăng thu dành cho chi thường xuyên: Nợ 9213 / Có 9151. Với đầu tư phát triển hoặc nghiệp vụ khác phải tra cứu quy tắc khác.'},
+ 'Dự phòng':{'debit':'','credit':'','guide':'Cần xác định chi thường xuyên/đầu tư và quyết định sử dụng dự phòng; chưa tự suy ra tài khoản nguồn.'},
+ 'Chuyển nguồn':{'debit':'','credit':'','guide':'Cần phân biệt năm trước chuyển sang và nguồn năm hiện hành; chưa có quy tắc đủ điều kiện để tự điền.'},
+ 'Bổ sung dự toán':{'debit':'','credit':'','guide':'Phân biệt bổ sung cân đối, có mục tiêu, tăng thu hoặc dự phòng trước khi định khoản.'},
+ 'Nguồn đầu tư phát triển giao đầu năm':{'debit':'9216','credit':'9111','guide':'Ví dụ nhập cấp 0 chi đầu tư phát triển: Nợ 9216 / Có 9111 theo hướng dẫn CV 15602.'},
+ 'Nguồn đầu tư phát triển từ tăng thu':{'debit':'9216','credit':'9151','guide':'Ví dụ nhập cấp 0 chi đầu tư phát triển từ tăng thu: Nợ 9216 / Có 9151 theo hướng dẫn CV 15602.'},
+}
+ORIGINAL_FORMS={
+ 'C6-01':'1.C6-01 (Phieu nhap DTNS).DOC',
+ 'C6-02':'2.C6-02 Phieu nhap DT C0(1).xls',
+ 'C6-03':'3.C6-03 Chung tu phan bo du toan.xls',
+ 'C6-04':'4.C6-04 (Phieu dieu chinh du toan)(1).DOC',
+}
+
 def normalize(text):
     text=unicodedata.normalize('NFD',text.lower().replace('đ','d'))
     return ' '.join(''.join(ch for ch in text if unicodedata.category(ch)!='Mn').split())
@@ -84,11 +106,16 @@ def find_sectors(description):
         if matched: results.append((max(map(len,matched)),loai,khoan,name,matched[0]))
     return sorted(results,reverse=True)
 
+
+# Danh mục mã loại dự toán có thể bổ sung qua CSV, không tự đặt mã số chưa xác minh.
+from budget_catalog import BudgetCatalog, HoverTip, infer_origin
+BUDGET_CATALOG = BudgetCatalog()
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — BẢN THỬ NGHIỆM 0.4')
-        self.geometry('1180x790')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.5.1 TÍCH HỢP DANH MỤC')
+        self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
         self.communes = {}
@@ -151,13 +178,37 @@ class App(tk.Tk):
         self.vars={k:tk.StringVar() for k in FIELDS}
         self.vars['date'].set(datetime.now().strftime('%Y-%m-%d'))
         self.vars['kind'].set(KINDS[0]);self.vars['budget_level'].set('4')
+        self.origin=tk.StringVar(value='Giao đầu năm / thường xuyên')
+        self.field_widgets={}
         for i,(k,label) in enumerate(zip(FIELDS,LABELS)):
             ttk.Label(left,text=label).grid(row=i,column=0,sticky='w',pady=5)
             if k=='kind': widget=ttk.Combobox(left,textvariable=self.vars[k],values=KINDS,state='readonly',width=49)
+            elif k=='budget_type': widget=ttk.Combobox(left,textvariable=self.vars[k],values=BUDGET_CATALOG.display_values(),width=49)
+            elif k=='chapter': widget=ttk.Combobox(left,textvariable=self.vars[k],values=['999','800','819','820','821','822','823','829','830','831'],width=49)
+            elif k in ('account_debit','account_credit'): widget=ttk.Combobox(left,textvariable=self.vars[k],values=['9213','9216','9111','9151','9219','9233','9229','9239','9241'],width=49)
             else:widget=ttk.Entry(left,textvariable=self.vars[k],width=52)
             widget.grid(row=i,column=1,sticky='ew',padx=10,pady=5)
+            self.field_widgets[k]=widget
+            if k in ('budget_type','chapter','sector_type','sector_item','account_debit','account_credit'):
+                HoverTip(widget, lambda key=k: self.describe_code(key))
+            if k=='budget_type':
+                widget.bind('<<ComboboxSelected>>', lambda e:self.on_budget_type_selected())
+        origin_row=len(FIELDS)
+        ttk.Label(left,text='Nguồn gốc cấp dự toán').grid(row=origin_row,column=0,sticky='w',pady=5)
+        origin_box=ttk.Combobox(left,textvariable=self.origin,state='readonly',width=49,values=list(ORIGIN_RULES))
+        origin_box.grid(row=origin_row,column=1,sticky='ew',padx=10,pady=5)
+        origin_box.bind('<<ComboboxSelected>>',lambda e:self.apply_origin())
+        HoverTip(origin_box, lambda: ORIGIN_RULES.get(self.origin.get(),{}).get('guide','Chọn nguồn dự toán'))
+        ttk.Button(left,text='Danh sách mã loại dự toán / tra cứu',command=self.open_budget_catalog).grid(
+            row=origin_row+2,column=0,columnspan=2,sticky='w',pady=3)
+        ttk.Button(left,text='Nạp lại danh mục CSV',command=self.reload_budget_catalog).grid(
+            row=origin_row+3,column=0,columnspan=2,sticky='w',pady=3)
+        self.vars['description'].trace_add('write',lambda *_:self.update_keyword_hints())
+        self.vars['kind'].trace_add('write',lambda *_:self.apply_origin())
         left.columnconfigure(1,weight=1)
-        controls=ttk.Frame(left);controls.grid(row=len(FIELDS),column=0,columnspan=2,sticky='w',pady=12)
+        controls=ttk.Frame(left);controls.grid(row=len(FIELDS)+1,column=0,columnspan=2,sticky='w',pady=12)
+        ttk.Button(controls,text='Gợi ý tài khoản và mã',command=self.apply_origin).pack(side='left',padx=4)
+        ttk.Button(controls,text='Mở mẫu C6 gốc',command=self.open_original_forms).pack(side='left',padx=4)
         ttk.Button(controls,text='Xem hướng dẫn nghiệp vụ',command=self.suggest).pack(side='left')
         ttk.Button(controls,text='Gợi ý mã ngành từ diễn giải',command=self.suggest_sector).pack(side='left',padx=8)
         ttk.Button(controls,text='Kiểm tra và lưu dự thảo',command=self.save_voucher).pack(side='left',padx=8)
@@ -166,6 +217,115 @@ class App(tk.Tk):
         self.guidance=tk.Text(right,wrap='word',width=44,height=25,font=('Segoe UI',10))
         self.guidance.pack(fill='both',expand=True)
         self.set_guidance('Chọn nghiệp vụ và bấm “Xem hướng dẫn nghiệp vụ”.\n\nỨng dụng KHÔNG tự điền tài khoản Nợ/Có khi thiếu dữ liệu nghiệp vụ hoặc chưa xác minh hiệu lực văn bản.')
+
+    def update_keyword_hints(self):
+        if not hasattr(self,'guidance'):return
+        desc=self.vars['description'].get().strip()
+        if len(desc)<4:return
+        detected=infer_origin(desc)
+        if detected and detected != self.origin.get():
+            self.origin.set(detected)
+            self.apply_origin()
+        matches=find_sectors(desc)
+        if matches:
+            _,loai,khoan,name,keyword=matches[0]
+            self.set_guidance(f'GỢI Ý TỪ KHÓA: {keyword}\nLoại {loai} / Khoản {khoan} – {name}\n\nBấm Gợi ý tài khoản và mã để xem quy tắc nguồn gốc.\nDanh mục chỉ là trích chọn, phải xác nhận trước khi dùng.')
+
+    def apply_origin(self):
+        if not hasattr(self,'guidance'):return
+        rule=ORIGIN_RULES.get(self.origin.get())
+        if not rule:return
+        desc=self.vars['description'].get().strip()
+        suggestions=find_sectors(desc)
+        sector='Chưa nhận diện Loại/Khoản từ mô tả.'
+        if suggestions:
+            _,loai,khoan,name,_=suggestions[0]
+            sector=f'Loại {loai} / Khoản {khoan} – {name}'
+            self.vars['sector_type'].set(loai);self.vars['sector_item'].set(khoan)
+        detected=infer_origin(desc)
+        if detected and detected!=self.origin.get():
+            self.origin.set(detected)
+            rule=ORIGIN_RULES.get(detected,rule)
+        candidate=BUDGET_CATALOG.match(desc,self.origin.get(),self.vars['kind'].get())
+        if candidate:
+            self.vars['budget_type'].set(candidate['code'])
+        elif self.vars['budget_type'].get() not in BUDGET_CATALOG.codes():
+            self.vars['budget_type'].set('')
+        is_zero=self.vars['kind'].get()=='Nhập dự toán cấp 0'
+        debit,credit=rule['debit'],rule['credit']
+        if is_zero and debit and credit:
+            self.vars['account_debit'].set(debit);self.vars['account_credit'].set(credit)
+        chapter_note='Cấp 0 thường dùng Chương 999 theo PL II CV 15602; xác minh niên độ.' if is_zero else 'Chương phải dựa trên đơn vị nhận dự toán, không chỉ từ khóa nghiệp vụ.'
+        if is_zero:self.vars['chapter'].set('999')
+        self.set_guidance('NGUỒN GỐC: '+self.origin.get()+'\n\n'+rule['guide']+'\n\n'+sector+'\n\n'+chapter_note+'\n\n'+('Gợi ý tài khoản: Nợ '+debit+' / Có '+credit if is_zero and debit and credit else 'Không tự điền Nợ/Có: chưa đủ căn cứ hoặc không phải nhập cấp 0.')+'\n\nMã loại dự toán: '+(candidate['code']+' – '+candidate['name']+' (kiểm tra trước khi lưu)' if candidate else 'chưa có mã được đối chiếu trong danh mục CSV; cần bổ sung/kiểm tra.')+'\n\nLƯU Ý: Hướng dẫn theo CV 15602 (2017), chưa xác minh đầy đủ hiệu lực cho niên độ hiện hành.')
+
+    def describe_code(self,key):
+        code=self.vars[key].get().strip()
+        if key=='budget_type':
+            item=BUDGET_CATALOG.get(code)
+            return (f"{item['code']} – {item['name']}\nNguồn: {item['source']}\n{item['note']}" if item else 'Chưa có tên mã trong danh mục đã xác minh. Mở Danh sách mã loại dự toán để tra cứu.')
+        if key in ('sector_type','sector_item'):
+            hits=[f'{a}/{b} – {name}' for a,b,name,_ in SECTORS if code in (a,b)]
+            return '\n'.join(hits[:10]) if hits else 'Chưa có tên trong danh mục Loại/Khoản trích chọn.'
+        if key=='chapter':
+            return 'Mã Chương phải xác định theo đơn vị và cấp dự toán; 999 là mã theo hướng dẫn cấp 0 lịch sử CV 15602.' if code=='999' else 'Đối chiếu Phụ lục I TT 130 và sửa đổi TT 123 trước khi xác nhận mã Chương.'
+        names={'9213':'Dự toán chi thường xuyên phân bổ cấp 0','9216':'Dự toán chi đầu tư phát triển phân bổ cấp 0',
+               '9111':'Nguồn dự toán giao trong năm','9151':'Nguồn dự toán tăng thu'}
+        return f'{code} – {names.get(code,"Cần tra cứu danh mục tài khoản và phạm vi áp dụng")}. Theo tài liệu CV 15602 (2017); xác minh hiệu lực.'
+
+    def on_budget_type_selected(self):
+        code=BUDGET_CATALOG.extract_code(self.vars['budget_type'].get())
+        self.vars['budget_type'].set(code)
+        self.set_guidance(self.describe_code('budget_type'))
+
+    def reload_budget_catalog(self):
+        BUDGET_CATALOG.reload()
+        self.field_widgets['budget_type']['values']=BUDGET_CATALOG.display_values()
+        messagebox.showinfo('Danh mục',f'Đã nạp {len(BUDGET_CATALOG.items)} mã có số hiệu từ CSV.\nTệp: {BUDGET_CATALOG.path}')
+
+    def open_budget_catalog(self):
+        win=tk.Toplevel(self);win.title('Danh mục mã loại dự toán – tra cứu và lựa chọn');win.geometry('1000x580')
+        win.transient(self)
+        ttk.Label(win,text='MÃ LOẠI DỰ TOÁN – CHỈ DÙNG MÃ ĐÃ ĐỐI CHIẾU',font=('Segoe UI',12,'bold')).pack(anchor='w',padx=12,pady=9)
+        ttk.Label(win,text='Danh mục CSV do cán bộ kiểm tra và bổ sung. Các nhóm nguồn chỉ là gợi ý, không phải mã số.',wraplength=900).pack(anchor='w',padx=12)
+        search=tk.StringVar()
+        ttk.Entry(win,textvariable=search,width=65).pack(fill='x',padx=12,pady=9)
+        cols=('code','name','source','keywords','note')
+        tree=ttk.Treeview(win,columns=cols,show='headings',height=15)
+        for col,label,width in [('code','Mã',85),('name','Tên mã',250),('source','Căn cứ',210),('keywords','Từ khóa',180),('note','Ghi chú',240)]:
+            tree.heading(col,text=label);tree.column(col,width=width)
+        tree.pack(fill='both',expand=True,padx=12)
+        HoverTip(tree,lambda: 'Chọn một dòng để đưa mã loại dự toán vào nghiệp vụ. Di chuột vào ô mã trên phiếu để xem tên và căn cứ.')
+        def refresh(*_):
+            for item in tree.get_children():tree.delete(item)
+            q=normalize(search.get())
+            for item in BUDGET_CATALOG.items:
+                if not q or q in normalize(' '.join(str(v) for v in item.values())):
+                    tree.insert('','end',values=tuple(item.get(k,'') for k in cols))
+        search.trace_add('write',refresh);refresh()
+        def choose():
+            sel=tree.selection()
+            if not sel:return
+            code=tree.item(sel[0],'values')[0]
+            self.vars['budget_type'].set(code)
+            self.on_budget_type_selected();win.destroy()
+        buttons=ttk.Frame(win);buttons.pack(fill='x',padx=12,pady=10)
+        ttk.Button(buttons,text='Chọn mã vào nghiệp vụ',command=choose).pack(side='left')
+        ttk.Button(buttons,text='Mở thư mục CSV',command=lambda:os.startfile(str(BUDGET_CATALOG.path.parent)) if sys.platform=='win32' else None).pack(side='left',padx=10)
+        ttk.Label(buttons,text=f'Tổng {len(BUDGET_CATALOG.items)} mã đã khai báo').pack(side='right')
+
+    def open_original_forms(self):
+        win=tk.Toplevel(self);win.title('Bốn mẫu C6 gốc - chỉ xem, không tự điền');win.geometry('650x330')
+        ttk.Label(win,text='MẪU C6 DO NGƯỜI DÙNG CUNG CẤP',font=('Segoe UI',13,'bold')).pack(pady=14)
+        ttk.Label(win,text='Mở mẫu gốc bằng Word/Excel trên Windows. Chưa phải phiếu đã điền.',wraplength=600).pack(pady=4)
+        base=Path(getattr(sys,'_MEIPASS',Path(__file__).parent))/'templates'
+        for code,filename in ORIGINAL_FORMS.items():
+            def open_file(fn=filename):
+                target=base/fn
+                if not target.exists():return messagebox.showerror('Thiếu file',str(target),parent=win)
+                try:os.startfile(str(target))
+                except Exception as e:messagebox.showerror('Không mở được mẫu',str(e),parent=win)
+            ttk.Button(win,text='Mở '+code+' – '+filename,command=open_file).pack(fill='x',padx=25,pady=5)
 
     def set_guidance(self,s):
         self.guidance.config(state='normal');self.guidance.delete('1.0','end');self.guidance.insert('1.0',s);self.guidance.config(state='disabled')
@@ -253,6 +413,11 @@ class App(tk.Tk):
         cid=self.commune_id()
         if not cid:return messagebox.showwarning('Chưa chọn xã','Hãy thêm và chọn xã/phường trước.')
         data={k:v.get().strip() for k,v in self.vars.items()}
+        data['budget_type']=BUDGET_CATALOG.extract_code(data['budget_type'])
+        if data['budget_type'] and data['budget_type'] not in BUDGET_CATALOG.codes():
+            if not messagebox.askyesno('Mã ngoài danh mục',
+                'Mã loại dự toán chưa có trong danh mục đối chiếu. Bạn đã kiểm tra văn bản và vẫn muốn lưu dự thảo?'):
+                return
         if not data['description']:return messagebox.showwarning('Thiếu','Cần nhập diễn giải nghiệp vụ.')
         try: datetime.strptime(data['date'],'%Y-%m-%d')
         except ValueError:return messagebox.showerror('Ngày sai','Ngày phải đúng dạng YYYY-MM-DD.')
@@ -268,6 +433,7 @@ class App(tk.Tk):
         year=int(data['date'][:4]); keys=FIELDS
         self.con.execute('INSERT INTO vouchers(commune_id,year,'+','.join(keys)+',legal_note) VALUES('+','.join(['?']*(len(keys)+3))+')',
                          [cid,year]+[amount if k=='amount' else data[k] for k in keys]+[REFERENCE.get(data['kind'],'Chưa có quy tắc xác nhận')])
+        self.con.execute('UPDATE vouchers SET origin=? WHERE id=last_insert_rowid()', (self.origin.get(),))
         self.con.commit();self.refresh_vouchers();messagebox.showinfo('Đã lưu','Đã lưu chứng từ ở trạng thái DỰ THẢO. Chưa phê duyệt hoặc ghi TABMIS.')
 
     def make_history(self):
@@ -489,7 +655,7 @@ class App(tk.Tk):
     def make_guide(self):
         txt=tk.Text(self.tab_guide,wrap='word',font=('Segoe UI',11),padx=15,pady=12)
         txt.pack(fill='both',expand=True)
-        txt.insert('1.0','''NGUỒN TÀI LIỆU THAM KHẢO\n\n• Công văn 15602/BTC-KBNN ngày 17/11/2017: quy trình nhập dự toán NSĐP.\n• Phụ lục II: nguyên tắc kết hợp tổ hợp tài khoản dự toán cấp 0, 1, 4.\n• Phụ lục V: điều chỉnh dự toán theo trạng thái và phân hệ.\n• Danh mục MLNS theo các phụ lục Thông tư 130/2025/TT-BTC, ghi nhận sửa đổi bởi Thông tư 123/2026/TT-BTC.\n\nGIỚI HẠN CỦA PHIÊN BẢN NÀY\n\n1. Mới có danh mục mẫu Loại/Khoản; chưa nhập đầy đủ MLNS từ các tệp .doc và .xls đính kèm.\n2. Chưa tích hợp mẫu chứng từ C6 chính thức. PDF hiện tại là phiếu kiểm tra nội bộ.\n3. Chưa xác minh tính hiệu lực của các quy tắc năm 2017 trong năm 2026.\n4. Không tự động tạo mã loại dự toán, TK Nợ/Có nếu chưa đủ căn cứ.\n5. Không có API ChatGPT; có thể dùng ChatGPT trình duyệt để hỗ trợ đối chiếu.\n6. Không gửi dữ liệu hoặc kết nối TABMIS.\n\nQUY TRÌNH SỬ DỤNG\n\n1. Thêm xã/phường, nhập các mã riêng của xã.\n2. Chọn xã, nhập nghiệp vụ và số tiền.\n3. Xem hướng dẫn; cán bộ tự đối chiếu và điền mã đã xác minh.\n4. Lưu dự thảo, xuất Excel hoặc phiếu kiểm tra PDF.\n5. Sao lưu dữ liệu SQLite định kỳ.\n\nDỮ LIỆU\n\nCơ sở dữ liệu được lưu tại ~/TroLyDuToanXa/du_toan_xa.sqlite3\n''')
+        txt.insert('1.0','''NGUỒN TÀI LIỆU THAM KHẢO\n\n• Công văn 15602/BTC-KBNN ngày 17/11/2017: quy trình nhập dự toán NSĐP.\n• Phụ lục II: nguyên tắc kết hợp tổ hợp tài khoản dự toán cấp 0, 1, 4.\n• Phụ lục V: điều chỉnh dự toán theo trạng thái và phân hệ.\n• Danh mục MLNS theo các phụ lục Thông tư 130/2025/TT-BTC, ghi nhận sửa đổi bởi Thông tư 123/2026/TT-BTC.\n\nGIỚI HẠN CỦA PHIÊN BẢN NÀY\n\n1. Mới có danh mục mẫu Loại/Khoản; chưa nhập đầy đủ MLNS từ các tệp .doc và .xls đính kèm.\n2. Đã kèm bốn tệp mẫu C6 nguyên gốc để xem. Chưa tự điền được lên mẫu chính thức; xuất Excel là bảng đối chiếu nội bộ.\n3. Chưa xác minh tính hiệu lực của các quy tắc năm 2017 trong năm 2026.\n4. Mã loại dự toán được gợi ý từ CSV đã đối chiếu; nếu CSV chưa có mã thì để trống, không tự suy đoán.\n5. Không có API ChatGPT; có thể dùng ChatGPT trình duyệt để hỗ trợ đối chiếu.\n6. Không gửi dữ liệu hoặc kết nối TABMIS.\n\nQUY TRÌNH SỬ DỤNG\n\n1. Thêm xã/phường, nhập các mã riêng của xã.\n2. Chọn xã, nhập nghiệp vụ và số tiền.\n3. Xem hướng dẫn; cán bộ tự đối chiếu và điền mã đã xác minh.\n4. Lưu dự thảo, xuất Excel hoặc phiếu kiểm tra PDF.\n5. Sao lưu dữ liệu SQLite định kỳ.\n\nDỮ LIỆU\n\nCơ sở dữ liệu được lưu tại ~/TroLyDuToanXa/du_toan_xa.sqlite3\n''')
         txt.config(state='disabled')
 
 if __name__=='__main__':

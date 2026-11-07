@@ -1,0 +1,21 @@
+HƯỚNG DẪN MÃ LOẠI DỰ TOÁN
+
+Mở phần mềm lần đầu, danh mục CSV được tạo tại:
+%USERPROFILE%\TroLyDuToanXa\danh_muc_ma_loai_du_toan.csv
+
+Các cột:
+code: mã số được xác minh
+name: tên mã chính thức
+source: tên văn bản/phụ lục và hiệu lực
+keywords: các cụm từ khóa trong diễn giải, phân tách bằng dấu ;
+origins: tên nguồn dự toán, phân tách bằng dấu ;
+kinds: tên nghiệp vụ, phân tách bằng dấu ;
+note: lưu ý điều kiện áp dụng
+
+Ví dụ cách viết DÒNG MINH HỌA KHÔNG CÓ MÃ SỐ:
+[điền mã đã xác minh],Tên mã từ văn bản,CV 15602/phụ lục đã đối chiếu,chi thường xuyên;giao đầu năm,Giao đầu năm / thường xuyên,Nhập dự toán cấp 0,Kiểm tra hiệu lực
+
+Lưu bằng Excel dưới dạng CSV UTF-8. Trong ứng dụng bấm Nạp lại danh mục CSV.
+Mã chỉ tự chọn khi có một quy tắc khớp rõ ràng, không có trường hợp đồng điểm.
+
+Chưa tự động điền mẫu C6 chính thức: bốn mẫu gốc được giữ nguyên để mở xem.
