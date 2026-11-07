@@ -51,29 +51,9 @@ REFERENCE = {
  'Điều chỉnh sai mã/số tiền': 'Phụ lục V, mục 1.4.1 và 2.5.1: cần phân biệt bút toán đã kết sổ, cùng/khác KBNN.',
 }
 
-# Danh mục Loại/Khoản trích chọn từ Phụ lục II kèm TT 130/2025/TT-BTC,
-# tài liệu người dùng cung cấp có chú thích sửa đổi TT 123/2026/TT-BTC.
-# Đây là tập dữ liệu khởi đầu, KHÔNG phải toàn bộ danh mục.
-SECTORS = [
- ('010','011','Quốc phòng','quốc phòng;dân quân;quân sự'),
- ('010','014','Chuẩn bị động viên','động viên'),
- ('040','041','An ninh và trật tự an toàn xã hội','an ninh;trật tự;an toàn xã hội;công an'),
- ('070','071','Giáo dục mầm non','mầm non;nhà trẻ;mẫu giáo'),
- ('070','072','Giáo dục tiểu học','tiểu học;trường tiểu học'),
- ('070','073','Giáo dục trung học cơ sở','trung học cơ sở;thcs'),
- ('070','074','Giáo dục trung học phổ thông','trung học phổ thông;thpt'),
- ('070','075','Giáo dục nghề nghiệp - giáo dục thường xuyên','giáo dục thường xuyên;giáo dục nghề nghiệp'),
- ('070','081','Giáo dục đại học','đại học'),
- ('070','082','Giáo dục sau đại học','sau đại học;thạc sĩ;tiến sĩ'),
- ('070','085','Đào tạo lại, bồi dưỡng nghiệp vụ khác cho cán bộ, công chức, viên chức','bồi dưỡng nghiệp vụ;đào tạo lại'),
- ('070','091','Giáo dục nghề nghiệp trình độ sơ cấp','đào tạo sơ cấp;nghề sơ cấp'),
- ('070','092','Giáo dục nghề nghiệp trình độ trung cấp','đào tạo trung cấp;nghề trung cấp'),
- ('070','093','Giáo dục nghề nghiệp trình độ cao đẳng','đào tạo cao đẳng;nghề cao đẳng'),
- ('100','101','Nghiên cứu cơ bản','nghiên cứu cơ bản'),
- ('100','102','Nghiên cứu ứng dụng','nghiên cứu ứng dụng'),
- ('100','103','Phát triển công nghệ, phát triển giải pháp xã hội','phát triển công nghệ'),
- ('100','104','Nghiên cứu công nghệ chiến lược','công nghệ chiến lược'),
-]
+# Danh mục được đọc từ Phụ lục II VBHN TT130/2025 và TT123/2026.
+from mlns_matcher import CATALOG as MLNS_CATALOG, BY_CODE as MLNS_BY_CODE, rank as rank_mlns, auto_candidate
+SECTORS=[(r['loai'],r['khoan'],r['ten'],'') for r in MLNS_CATALOG if r['khoan'] not in ('121','314','315')]
 
 # Các tình huống đã trích từ CV 15602 và tài liệu nhập cấp 0; ngoài các tình huống này không đoán định khoản.
 ORIGIN_RULES={
@@ -97,14 +77,7 @@ def normalize(text):
     return ' '.join(''.join(ch for ch in text if unicodedata.category(ch)!='Mn').split())
 
 def find_sectors(description):
-    query=normalize(description)
-    if not query: return []
-    results=[]
-    for loai,khoan,name,keywords in SECTORS:
-        phrases=[normalize(name)]+[normalize(x) for x in keywords.split(';')]
-        matched=[x for x in phrases if len(x)>3 and x in query]
-        if matched: results.append((max(map(len,matched)),loai,khoan,name,matched[0]))
-    return sorted(results,reverse=True)
+    return [(r['score'],r['loai'],r['khoan'],r['ten'],r['match']) for r in rank_mlns(description)]
 
 
 # Danh mục mã loại dự toán có thể bổ sung qua CSV, không tự đặt mã số chưa xác minh.
@@ -229,7 +202,8 @@ class App(tk.Tk):
         matches=find_sectors(desc)
         if matches:
             _,loai,khoan,name,keyword=matches[0]
-            self.set_guidance(f'GỢI Ý TỪ KHÓA: {keyword}\nLoại {loai} / Khoản {khoan} – {name}\n\nBấm Gợi ý tài khoản và mã để xem quy tắc nguồn gốc.\nDanh mục chỉ là trích chọn, phải xác nhận trước khi dùng.')
+            note=MLNS_BY_CODE.get(khoan,{}).get('ghi_chu','')
+            self.set_guidance(f'GỢI Ý: Loại {loai} / Khoản {khoan} – {name}\nGhi chú: {note}\n\nĐây là kết quả xếp hạng từ diễn giải, hãy kiểm tra và xác nhận mã.')
 
     def apply_origin(self):
         if not hasattr(self,'guidance'):return
@@ -240,8 +214,7 @@ class App(tk.Tk):
         sector='Chưa nhận diện Loại/Khoản từ mô tả.'
         if suggestions:
             _,loai,khoan,name,_=suggestions[0]
-            sector=f'Loại {loai} / Khoản {khoan} – {name}'
-            self.vars['sector_type'].set(loai);self.vars['sector_item'].set(khoan)
+            sector=f'Gợi ý Loại {loai} / Khoản {khoan} – {name} (cần xác nhận)'
         detected=infer_origin(desc)
         if detected and detected!=self.origin.get():
             self.origin.set(detected)
@@ -265,8 +238,8 @@ class App(tk.Tk):
             item=BUDGET_CATALOG.get(code)
             return (f"{item['code']} – {item['name']}\nNguồn: {item['source']}\n{item['note']}" if item else 'Chưa có tên mã trong danh mục đã xác minh. Mở Danh sách mã loại dự toán để tra cứu.')
         if key in ('sector_type','sector_item'):
-            hits=[f'{a}/{b} – {name}' for a,b,name,_ in SECTORS if code in (a,b)]
-            return '\n'.join(hits[:10]) if hits else 'Chưa có tên trong danh mục Loại/Khoản trích chọn.'
+            hits=[f"{r['loai']}/{r['khoan']} – {r['ten']}\nGhi chú: {r['ghi_chu']}\nNguồn: {r['nguon']}" for r in MLNS_CATALOG if code in (r['loai'],r['khoan'])]
+            return '\n'.join(hits[:4]) if hits else 'Chưa có tên trong danh mục Loại/Khoản.'
         if key=='chapter':
             return 'Mã Chương phải xác định theo đơn vị và cấp dự toán; 999 là mã theo hướng dẫn cấp 0 lịch sử CV 15602.' if code=='999' else 'Đối chiếu Phụ lục I TT 130 và sửa đổi TT 123 trước khi xác nhận mã Chương.'
         names={'9213':'Dự toán chi thường xuyên phân bổ cấp 0','9216':'Dự toán chi đầu tư phát triển phân bổ cấp 0',
@@ -356,7 +329,7 @@ class App(tk.Tk):
 
     def make_catalog(self):
         ttk.Label(self.tab_catalog,text='TRA CỨU LOẠI / KHOẢN (MÃ NGÀNH KINH TẾ)',font=('Segoe UI',13,'bold')).pack(anchor='w')
-        ttk.Label(self.tab_catalog,text='Danh mục trích chọn từ Phụ lục II – TT 130/2025/TT-BTC (có ghi chú sửa đổi TT 123/2026). Chưa đầy đủ, cần kiểm tra hiệu lực.',foreground='#92430d',wraplength=1000).pack(anchor='w',pady=5)
+        ttk.Label(self.tab_catalog,text='Danh mục đọc từ Phụ lục II văn bản hợp nhất TT130/2025, sửa đổi TT123/2026. Kết quả xếp hạng là gợi ý; kiểm tra hiệu lực và ghi chú trước khi dùng.',foreground='#92430d',wraplength=1000).pack(anchor='w',pady=5)
         bar=ttk.Frame(self.tab_catalog);bar.pack(fill='x',pady=9)
         ttk.Label(bar,text='Mã hoặc nghiệp vụ:').pack(side='left')
         self.catalog_search=tk.StringVar()
@@ -397,13 +370,14 @@ class App(tk.Tk):
             if not matches:
                 matches=[(1,loai,khoan,name,'tên') for loai,khoan,name,_ in SECTORS if normalized in normalize(name)]
         self.render_catalog(matches)
-        self.catalog_status.set(f'Có {len(matches)} kết quả trong danh mục mẫu.' if matches else 'Không thấy mã trong danh mục mẫu. Cần tra cứu Phụ lục II đầy đủ.')
+        self.catalog_status.set(f'Có {len(matches)} mã được xếp hạng; chọn để xem và xác nhận.' if matches else 'Không thấy mã trong danh mục mẫu. Cần tra cứu Phụ lục II đầy đủ.')
 
     def apply_sector(self):
         selected=self.catalog_tree.selection()
         if not selected:return messagebox.showwarning('Chưa chọn','Chọn một dòng mã ngành trước.')
         loai,khoan,name,_=self.catalog_tree.item(selected[0],'values')
-        if messagebox.askyesno('Xác nhận mã ngành',f'Đưa mã Loại {loai} / Khoản {khoan} – {name} vào phiếu?\n\nĐây là gợi ý theo từ khóa, cần đối chiếu bản chất nhiệm vụ chi và văn bản có hiệu lực.'):
+        detail=MLNS_BY_CODE.get(khoan,{})
+        if messagebox.askyesno('Xác nhận mã ngành',f"Đưa mã Loại {loai} / Khoản {khoan} – {name} vào phiếu?\n\nGhi chú: {detail.get('ghi_chu','Không có')}\n\nCần đối chiếu bản chất nhiệm vụ chi và văn bản có hiệu lực."):
             self.vars['sector_type'].set(loai)
             self.vars['sector_item'].set(khoan)
             self.tabs.select(self.tab_entry)

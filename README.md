@@ -19,3 +19,13 @@ Tải toàn bộ mã nguồn lên GitHub (bao gồm thư mục templates và .gi
 - CSV lưu trong thư mục dữ liệu cá nhân, không bị mất khi nâng cấp ứng dụng.
 - Danh mục mã loại dự toán ban đầu để trống vì chưa có bảng mã chính thức được xác minh; cần bổ sung trước khi dùng tự chọn mã.
 - Các mẫu C6 gốc giữ nguyên, chưa tự điền theo ô chính thức.
+
+
+## 0.5.2 – Tra cứu Loại/Khoản theo diễn giải
+- Danh mục `mlns_loai_khoan.csv`: 110 Khoản được trích từ Phụ lục II văn bản hợp nhất do người dùng cung cấp, có tên và ghi chú.
+- `mlns_matcher.py` xếp hạng các Khoản theo diễn giải, từ đồng nghĩa, tên và ghi chú.
+- Các mã 121, 314, 315 đã bị bãi bỏ theo TT123/2026 không đưa vào gợi ý.
+- Kết quả chỉ là đề xuất, phải xác nhận trước khi điền mã. Tên mã hiển thị khi di chuột.
+- Không tự xác nhận trường hợp đa lĩnh vực, mua sắm hoặc sửa chữa có bản chất nhiệm vụ chưa rõ.
+- Mã loại dự toán TABMIS tiếp tục dựa vào danh mục CSV do cán bộ kiểm tra và bổ sung; không suy đoán mã số.
+- Phiếu C6 gốc được lưu nguyên trạng, chưa có tự động điền đầy đủ vào biểu mẫu.
