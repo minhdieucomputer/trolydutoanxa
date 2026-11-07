@@ -29,7 +29,7 @@ jobs:
       - name: Dong goi phan mem
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --windowed --onefile --name TroLyDuToanXa app.py
+          pyinstaller --noconfirm --clean --windowed --onefile --name TroLyDuToanXa --add-data "templates;templates" --add-data "mlns_loai_khoan.csv;." app.py
 
       - name: Tao Setup EXE
         shell: pwsh
