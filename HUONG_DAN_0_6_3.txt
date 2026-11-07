@@ -1,0 +1,4 @@
+Phiên bản 0.6.3: Hiển thị cố định dưới tiêu đề chính:
+KHO BẠC NHÀ NƯỚC KHU VỰC IV-PHÒNG GIAO DỊCH SỐ 4
+Tác giả: Đoàn Minh Điều-Mai Thị Huế
+Cập nhật nguồn lên GitHub và chạy lại workflow tạo bộ cài.

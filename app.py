@@ -89,7 +89,7 @@ BUDGET_CATALOG = BudgetCatalog()
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.6.0')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.6.3')
         self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
@@ -101,6 +101,8 @@ class App(tk.Tk):
         style.configure('TButton',padding=7)
         top = ttk.Frame(self,padding=14); top.pack(fill='x')
         ttk.Label(top,text='TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ',style='Title.TLabel').pack(anchor='w')
+        ttk.Label(top,text='KHO BẠC NHÀ NƯỚC KHU VỰC IV-PHÒNG GIAO DỊCH SỐ 4',font=('Segoe UI', 11, 'bold'),foreground='#17456d').pack(anchor='w',pady=(3,0))
+        ttk.Label(top,text='Tác giả: Đoàn Minh Điều-Mai Thị Huế',font=('Segoe UI', 10, 'bold'),foreground='#17456d').pack(anchor='w',pady=(1,4))
         ttk.Label(top,text='Nhiều xã/phường • Dữ liệu lưu tại máy • Định khoản chỉ được xác nhận sau kiểm tra nghiệp vụ',foreground='#555').pack(anchor='w')
         choose = ttk.Frame(self,padding=(14,0,14,8)); choose.pack(fill='x')
         ttk.Label(choose,text='Xã/phường đang làm việc:').pack(side='left')
@@ -118,14 +120,7 @@ class App(tk.Tk):
         self.tab_catalog=ttk.Frame(self.tabs,padding=12); self.tabs.add(self.tab_catalog,text='Tra cứu MLNS / Gợi ý mã ngành')
         self.tab_batch=ttk.Frame(self.tabs,padding=12); self.tabs.add(self.tab_batch,text='Bộ 3 chứng từ / Phụ lục QĐ')
         self.tab_guide=ttk.Frame(self.tabs,padding=12); self.tabs.add(self.tab_guide,text='Hướng dẫn hạch toán')
-        self.make_entry(); self.make_history(); self.make_catalog(); self.make_batch(); self.make_guide(); self.refresh_communes()
-        ttk.Label(self,text='LƯU Ý: Phần mềm không gửi dữ liệu lên mạng, không ghi TABMIS và không thay thế kiểm soát của cán bộ nghiệp vụ.',foreground='#8a3b20',padding=(10,5)).pack(fill='x')
-        credit = ttk.Frame(self, padding=(12, 4, 12, 9))
-        credit.pack(fill='x')
-        ttk.Label(credit, text='Kho bạc Nhà nước Khu vực IV- Phòng Giao dịch số 4',
-                  font=('Segoe UI', 9, 'bold'), anchor='center').pack(fill='x')
-        ttk.Label(credit, text='Thiết kế bởi Mai Thị Huế - Đoàn Minh Điều',
-                  font=('Segoe UI', 9), anchor='center').pack(fill='x')
+        self.make_entry(); self.apply_origin(); self.make_history(); self.make_catalog(); self.make_batch(); self.make_guide(); self.refresh_communes()
 
     def refresh_communes(self):
         rows=self.con.execute('SELECT id,name,area_code FROM communes ORDER BY name').fetchall()
@@ -314,9 +309,9 @@ class App(tk.Tk):
         elif self.vars['source_code'].get()==self._auto_suggestion.get('source'):
             self.vars['source_code'].set('');self._auto_suggestion['source']=None
         candidate=BUDGET_CATALOG.match(desc,self.origin.get(),self.vars['kind'].get())
-        if candidate:
-            self.vars['budget_type'].set(candidate['code'])
-            self._auto_suggestion['budget']=candidate['code']
+        if candidate and (not self.vars['budget_type'].get() or self.vars['budget_type'].get()==self._auto_suggestion.get('budget')):
+            self.vars['budget_type'].set(candidate['code']+' – '+candidate['name'])
+            self._auto_suggestion['budget']=candidate['code']+' – '+candidate['name']
         elif self.vars['budget_type'].get()==self._auto_suggestion.get('budget'):
             self.vars['budget_type'].set('')
             self._auto_suggestion['budget']=None

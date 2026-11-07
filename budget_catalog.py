@@ -64,7 +64,13 @@ class BudgetCatalog:
         elif any(t in q for t in ('bo sung du toan','du toan bo sung','giao bo sung','bo sung kinh phi','bo sung tu nguon')):code='02'
         else:code=None
         if code:return self.by_code.get(code)
-        q=norm(description)
+        # Nguồn gốc là trường nghiệp vụ độc lập: chỉ dùng khi diễn giải
+        # chưa chỉ rõ một loại dự toán khác.
+        o=norm(origin)
+        if 'bo sung' in o:code='02'
+        elif 'giao dau nam' in o:code='01'
+        else:code=None
+        if code:return self.by_code.get(code)
         q=norm(description)
         o=norm(origin)
         k=norm(kind)
