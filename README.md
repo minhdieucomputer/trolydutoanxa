@@ -29,3 +29,11 @@ Tải toàn bộ mã nguồn lên GitHub (bao gồm thư mục templates và .gi
 - Không tự xác nhận trường hợp đa lĩnh vực, mua sắm hoặc sửa chữa có bản chất nhiệm vụ chưa rõ.
 - Mã loại dự toán TABMIS tiếp tục dựa vào danh mục CSV do cán bộ kiểm tra và bổ sung; không suy đoán mã số.
 - Phiếu C6 gốc được lưu nguyên trạng, chưa có tự động điền đầy đủ vào biểu mẫu.
+
+
+## Phiên bản 0.5.3 — danh sách gợi ý trực tiếp trên màn hình nghiệp vụ
+- Mã Loại và mã Khoản là Combobox: danh sách mã và tên, sắp xếp gợi ý từ diễn giải lên đầu.
+- Với gợi ý đủ điểm và không mơ hồ, phần mềm tự điền Loại/Khoản; người dùng có thể chọn lại.
+- Mã loại dự toán là Combobox từ danh mục CSV đã kiểm chứng nằm tại `~/TroLyDuToanXa/danh_muc_ma_loai_du_toan.csv`. Danh mục này **chưa có mã chính thức**, nên không có mã để tự điền cho đến khi người sử dụng bổ sung dữ liệu đã kiểm tra. Không được tự đặt mã.
+- Di chuột lên các ô mã để xem tên/ghi chú. Không tự xác nhận hạch toán.
+- GitHub Actions kiểm tra có CSV và đóng gói thư mục templates nếu có.

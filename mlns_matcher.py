@@ -55,6 +55,10 @@ def rank(description,limit=12):
 def auto_candidate(description):
     hits=rank(description,2)
     # Không tự chốt khi thiếu độ tin cậy hoặc nhiều mã gần điểm nhau.
-    if not hits or hits[0]['score']<70:return None
+    if not hits:return None
+    # Tên ngành hoặc từ đồng nghĩa chính xác có thể được đề xuất với ngưỡng thấp hơn.
+    top=hits[0]
+    exact_synonym=any(normalize(alias) in normalize(description) for alias in SYNONYMS.get(top['khoan'],[]) if len(alias)>3)
+    if top['score']<(60 if exact_synonym else 70):return None
     if len(hits)>1 and hits[0]['score']-hits[1]['score']<18:return None
     return hits[0]

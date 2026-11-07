@@ -1,5 +1,5 @@
 #define MyAppName "Trợ lý dự toán ngân sách xã"
-#define MyAppVersion "0.5.0-beta"
+#define MyAppVersion "0.5.3-beta"
 #define MyAppExeName "TroLyDuToanXa.exe"
 [Setup]
 AppId={{A6A8DCE5-76B5-44B9-BF08-C7A9F6F1E3E4}

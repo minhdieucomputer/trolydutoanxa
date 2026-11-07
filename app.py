@@ -87,7 +87,7 @@ BUDGET_CATALOG = BudgetCatalog()
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.5.1 TÍCH HỢP DANH MỤC')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.5.3 COMBOBOX GỢI Ý')
         self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
@@ -156,7 +156,8 @@ class App(tk.Tk):
         for i,(k,label) in enumerate(zip(FIELDS,LABELS)):
             ttk.Label(left,text=label).grid(row=i,column=0,sticky='w',pady=5)
             if k=='kind': widget=ttk.Combobox(left,textvariable=self.vars[k],values=KINDS,state='readonly',width=49)
-            elif k=='budget_type': widget=ttk.Combobox(left,textvariable=self.vars[k],values=BUDGET_CATALOG.display_values(),width=49)
+            elif k=='budget_type': widget=ttk.Combobox(left,textvariable=self.vars[k],values=BUDGET_CATALOG.display_values(),width=49,state='readonly')
+            elif k in ('sector_type','sector_item'): widget=ttk.Combobox(left,textvariable=self.vars[k],values=[],width=49,state='readonly')
             elif k=='chapter': widget=ttk.Combobox(left,textvariable=self.vars[k],values=['999','800','819','820','821','822','823','829','830','831'],width=49)
             elif k in ('account_debit','account_credit'): widget=ttk.Combobox(left,textvariable=self.vars[k],values=['9213','9216','9111','9151','9219','9233','9229','9239','9241'],width=49)
             else:widget=ttk.Entry(left,textvariable=self.vars[k],width=52)
@@ -166,6 +167,8 @@ class App(tk.Tk):
                 HoverTip(widget, lambda key=k: self.describe_code(key))
             if k=='budget_type':
                 widget.bind('<<ComboboxSelected>>', lambda e:self.on_budget_type_selected())
+            if k=='sector_item': widget.bind('<<ComboboxSelected>>',lambda e:self.on_sector_item_selected())
+            if k=='sector_type': widget.bind('<<ComboboxSelected>>',lambda e:self.on_sector_type_selected())
         origin_row=len(FIELDS)
         ttk.Label(left,text='Nguồn gốc cấp dự toán').grid(row=origin_row,column=0,sticky='w',pady=5)
         origin_box=ttk.Combobox(left,textvariable=self.origin,state='readonly',width=49,values=list(ORIGIN_RULES))
@@ -176,6 +179,8 @@ class App(tk.Tk):
             row=origin_row+2,column=0,columnspan=2,sticky='w',pady=3)
         ttk.Button(left,text='Nạp lại danh mục CSV',command=self.reload_budget_catalog).grid(
             row=origin_row+3,column=0,columnspan=2,sticky='w',pady=3)
+        self._auto_suggestion={'sector':None,'budget':None}
+        self.populate_sector_lists()
         self.vars['description'].trace_add('write',lambda *_:self.update_keyword_hints())
         self.vars['kind'].trace_add('write',lambda *_:self.apply_origin())
         left.columnconfigure(1,weight=1)
@@ -191,19 +196,62 @@ class App(tk.Tk):
         self.guidance.pack(fill='both',expand=True)
         self.set_guidance('Chọn nghiệp vụ và bấm “Xem hướng dẫn nghiệp vụ”.\n\nỨng dụng KHÔNG tự điền tài khoản Nợ/Có khi thiếu dữ liệu nghiệp vụ hoặc chưa xác minh hiệu lực văn bản.')
 
+    def populate_sector_lists(self, matches=None):
+        """Danh sách Loại/Khoản: ưu tiên gợi ý, vẫn cho chọn mọi mã hợp lệ."""
+        all_rows=[r for r in MLNS_CATALOG if r['khoan'] not in ('121','314','315')]
+        ordered=[]; seen=set()
+        for hit in (matches or []):
+            code=hit[2]
+            if code not in seen and code in MLNS_BY_CODE:
+                ordered.append(MLNS_BY_CODE[code]);seen.add(code)
+        ordered.extend(r for r in all_rows if r['khoan'] not in seen)
+        self.field_widgets['sector_item']['values']=[f"{r['khoan']} – {r['ten']}" for r in ordered]
+        loai_names={}
+        for r in all_rows:
+            loai_names.setdefault(r['loai'],r.get('ten_loai') or 'Lĩnh vực '+r['loai'])
+        self.field_widgets['sector_type']['values']=[f'{code} – {name}' for code,name in sorted(loai_names.items())]
+
+    def on_sector_item_selected(self):
+        raw=self.vars['sector_item'].get()
+        code=raw.split(' – ')[0].strip()
+        self.vars['sector_item'].set(code)
+        row=MLNS_BY_CODE.get(code)
+        if row:
+            self.vars['sector_type'].set(row['loai'])
+            self.set_guidance(f"KHOẢN {code} – {row['ten']}\nLoại: {row['loai']}\nGhi chú: {row.get('ghi_chu','')}\nNguồn: {row.get('nguon','')}\n\nNgười dùng cần xác nhận bản chất nghiệp vụ.")
+
+    def on_sector_type_selected(self):
+        code=self.vars['sector_type'].get().split(' – ')[0].strip()
+        self.vars['sector_type'].set(code)
+        current=self.vars['sector_item'].get().split(' – ')[0].strip()
+        if current and MLNS_BY_CODE.get(current,{}).get('loai')!=code:
+            self.vars['sector_item'].set('')
+        rows=[r for r in MLNS_CATALOG if r['loai']==code and r['khoan'] not in ('121','314','315')]
+        self.field_widgets['sector_item']['values']=[f"{r['khoan']} – {r['ten']}" for r in rows]
+
     def update_keyword_hints(self):
         if not hasattr(self,'guidance'):return
         desc=self.vars['description'].get().strip()
         if len(desc)<4:return
         detected=infer_origin(desc)
-        if detected and detected != self.origin.get():
-            self.origin.set(detected)
-            self.apply_origin()
+        if detected and detected!=self.origin.get():self.origin.set(detected)
         matches=find_sectors(desc)
+        self.populate_sector_lists(matches)
+        candidate=auto_candidate(desc)
+        if candidate:
+            self.vars['sector_type'].set(candidate['loai'])
+            self.vars['sector_item'].set(candidate['khoan'])
+            self._auto_suggestion['sector']=candidate['khoan']
+        elif self.vars['sector_item'].get()==self._auto_suggestion.get('sector'):
+            self.vars['sector_type'].set('');self.vars['sector_item'].set('')
+            self._auto_suggestion['sector']=None
+        self.apply_origin()
         if matches:
-            _,loai,khoan,name,keyword=matches[0]
+            score,loai,khoan,name,_=matches[0]
             note=MLNS_BY_CODE.get(khoan,{}).get('ghi_chu','')
-            self.set_guidance(f'GỢI Ý: Loại {loai} / Khoản {khoan} – {name}\nGhi chú: {note}\n\nĐây là kết quả xếp hạng từ diễn giải, hãy kiểm tra và xác nhận mã.')
+            self.set_guidance(self.guidance.get('1.0','end').strip()+
+                f'\n\nXẾP HẠNG MLNS: Loại {loai} / Khoản {khoan} – {name} ({score} điểm)\nGhi chú: {note}\n'+
+                ('Đã điền mã gợi ý có độ phù hợp cao, cần xác nhận.' if candidate else 'Chưa đủ tin cậy để tự điền mã. Mở danh sách Khoản để chọn.'))
 
     def apply_origin(self):
         if not hasattr(self,'guidance'):return
@@ -222,8 +270,10 @@ class App(tk.Tk):
         candidate=BUDGET_CATALOG.match(desc,self.origin.get(),self.vars['kind'].get())
         if candidate:
             self.vars['budget_type'].set(candidate['code'])
-        elif self.vars['budget_type'].get() not in BUDGET_CATALOG.codes():
+            self._auto_suggestion['budget']=candidate['code']
+        elif self.vars['budget_type'].get()==self._auto_suggestion.get('budget'):
             self.vars['budget_type'].set('')
+            self._auto_suggestion['budget']=None
         is_zero=self.vars['kind'].get()=='Nhập dự toán cấp 0'
         debit,credit=rule['debit'],rule['credit']
         if is_zero and debit and credit:
@@ -233,7 +283,7 @@ class App(tk.Tk):
         self.set_guidance('NGUỒN GỐC: '+self.origin.get()+'\n\n'+rule['guide']+'\n\n'+sector+'\n\n'+chapter_note+'\n\n'+('Gợi ý tài khoản: Nợ '+debit+' / Có '+credit if is_zero and debit and credit else 'Không tự điền Nợ/Có: chưa đủ căn cứ hoặc không phải nhập cấp 0.')+'\n\nMã loại dự toán: '+(candidate['code']+' – '+candidate['name']+' (kiểm tra trước khi lưu)' if candidate else 'chưa có mã được đối chiếu trong danh mục CSV; cần bổ sung/kiểm tra.')+'\n\nLƯU Ý: Hướng dẫn theo CV 15602 (2017), chưa xác minh đầy đủ hiệu lực cho niên độ hiện hành.')
 
     def describe_code(self,key):
-        code=self.vars[key].get().strip()
+        code=self.vars[key].get().split(' – ')[0].strip()
         if key=='budget_type':
             item=BUDGET_CATALOG.get(code)
             return (f"{item['code']} – {item['name']}\nNguồn: {item['source']}\n{item['note']}" if item else 'Chưa có tên mã trong danh mục đã xác minh. Mở Danh sách mã loại dự toán để tra cứu.')
@@ -249,11 +299,13 @@ class App(tk.Tk):
     def on_budget_type_selected(self):
         code=BUDGET_CATALOG.extract_code(self.vars['budget_type'].get())
         self.vars['budget_type'].set(code)
+        self._auto_suggestion['budget']=None
         self.set_guidance(self.describe_code('budget_type'))
 
     def reload_budget_catalog(self):
         BUDGET_CATALOG.reload()
         self.field_widgets['budget_type']['values']=BUDGET_CATALOG.display_values()
+        self.apply_origin()
         messagebox.showinfo('Danh mục',f'Đã nạp {len(BUDGET_CATALOG.items)} mã có số hiệu từ CSV.\nTệp: {BUDGET_CATALOG.path}')
 
     def open_budget_catalog(self):
@@ -380,6 +432,7 @@ class App(tk.Tk):
         if messagebox.askyesno('Xác nhận mã ngành',f"Đưa mã Loại {loai} / Khoản {khoan} – {name} vào phiếu?\n\nGhi chú: {detail.get('ghi_chu','Không có')}\n\nCần đối chiếu bản chất nhiệm vụ chi và văn bản có hiệu lực."):
             self.vars['sector_type'].set(loai)
             self.vars['sector_item'].set(khoan)
+            self._auto_suggestion['sector']=None
             self.tabs.select(self.tab_entry)
             self.set_guidance(f'GỢI Ý MÃ NGÀNH: Loại {loai}, Khoản {khoan} – {name}\n\nNguồn: Phụ lục II kèm TT 130/2025/TT-BTC (bản có ghi nhận sửa đổi theo TT 123/2026).\nĐây là gợi ý tra cứu, không phải xác nhận hạch toán. Kiểm tra nghiệp vụ, niên độ và hiệu lực trước khi sử dụng.')
 
@@ -387,6 +440,8 @@ class App(tk.Tk):
         cid=self.commune_id()
         if not cid:return messagebox.showwarning('Chưa chọn xã','Hãy thêm và chọn xã/phường trước.')
         data={k:v.get().strip() for k,v in self.vars.items()}
+        for key in ('sector_type','sector_item'):
+            data[key]=data[key].split(' – ')[0].strip()
         data['budget_type']=BUDGET_CATALOG.extract_code(data['budget_type'])
         if data['budget_type'] and data['budget_type'] not in BUDGET_CATALOG.codes():
             if not messagebox.askyesno('Mã ngoài danh mục',
