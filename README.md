@@ -37,3 +37,20 @@ Tải toàn bộ mã nguồn lên GitHub (bao gồm thư mục templates và .gi
 - Mã loại dự toán là Combobox từ danh mục CSV đã kiểm chứng nằm tại `~/TroLyDuToanXa/danh_muc_ma_loai_du_toan.csv`. Danh mục này **chưa có mã chính thức**, nên không có mã để tự điền cho đến khi người sử dụng bổ sung dữ liệu đã kiểm tra. Không được tự đặt mã.
 - Di chuột lên các ô mã để xem tên/ghi chú. Không tự xác nhận hạch toán.
 - GitHub Actions kiểm tra có CSV và đóng gói thư mục templates nếu có.
+
+
+## Bản 0.5.4 — gom nhiều nghiệp vụ trước khi tạo phiếu
+
+- Trong tab **Nhập nghiệp vụ**, nhập diễn giải và số tiền rồi chọn **Thêm nghiệp vụ vào bộ phiếu**. Dòng sẽ chuyển vào tab **Bộ 3 chứng từ / Phụ lục QĐ**.
+- Lặp lại cho từng nghiệp vụ. Có thể xóa dòng trong bảng tổng hợp.
+- Sau khi đủ dòng, nhập số và ngày quyết định, chọn **Tạo phiếu và quyết định từ toàn bộ nghiệp vụ**, chọn C6/Quyết định/Phụ lục muốn xuất.
+- Các file Excel xuất ra là **bảng dự thảo để đối chiếu**, không phải mẫu C6 hoặc quyết định đã ánh xạ chuẩn. Có thêm các cột mã loại dự toán, TK Nợ/Có và nguồn gốc dự toán để kiểm soát.
+- **Quan trọng:** `MA_LOAI_DU_TOAN_HUONG_DAN.csv` và `~/TroLyDuToanXa/danh_muc_ma_loai_du_toan.csv` hiện chỉ có tiêu đề, chưa có mã số đã kiểm chứng. Do đó không thể tự suy ra **mã số loại dự toán** dù đã nhận diện được cụm “giao đầu năm”, “bổ sung”, “tăng thu”. Phải bổ sung mã chính thức và điều kiện áp dụng vào CSV, sau đó nhấn **Nạp lại danh mục CSV**. Không tự gán mã giả.
+- Trước khi sử dụng thực tế, cần đối chiếu hiệu lực quy tắc Công văn 15602 và các văn bản hiện hành.
+
+
+## Bản 0.5.8 – xem trước và gom nghiệp vụ
+- Nút đưa từng nghiệp vụ vào bộ phiếu/quyết định, xem trước nghiệp vụ hiện tại.
+- Xem trước danh sách nghiệp vụ tổng hợp, tổng tiền, tô hồng dòng thiếu mã.
+- Sửa dòng đã chọn trước khi xuất, chọn mẫu C6/Mẫu C/47/48 trong cửa sổ xuất.
+- Xem trước là **bảng dữ liệu dự thảo**, không phải bản xem trước bố cục mẫu chứng từ chính thức.

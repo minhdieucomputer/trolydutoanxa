@@ -1,11 +1,13 @@
 """Danh mục mã loại dự toán: không phát sinh mã chưa được kiểm chứng."""
 import csv
+import sys
 import unicodedata
 from pathlib import Path
 import tkinter as tk
 
 DATA_DIR=Path.home()/'TroLyDuToanXa'
 CATALOG=DATA_DIR/'danh_muc_ma_loai_du_toan.csv'
+DEFAULT_CATALOG=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent))/'MA_LOAI_DU_TOAN_HUONG_DAN.csv'
 HEADERS=['code','name','source','keywords','origins','kinds','note']
 
 def norm(value):
@@ -23,10 +25,23 @@ class BudgetCatalog:
             with self.path.open('w',encoding='utf-8-sig',newline='') as f:
                 writer=csv.DictWriter(f,fieldnames=HEADERS)
                 writer.writeheader()
-                # Không ghi mã giả. Cán bộ bổ sung mã số chính thức sau khi kiểm tra phụ lục.
+                if DEFAULT_CATALOG.exists():
+                    with DEFAULT_CATALOG.open('r',encoding='utf-8-sig',newline='') as seed:
+                        for item in csv.DictReader(seed):
+                            writer.writerow({key:item.get(key,'') for key in HEADERS})
         with self.path.open('r',encoding='utf-8-sig',newline='') as f:
             self.items=[{k:(row.get(k) or '').strip() for k in HEADERS}
                         for row in csv.DictReader(f) if (row.get('code') or '').strip()]
+        # Nạp bổ sung mã mặc định khi người dùng đã có file CSV rỗng từ bản cũ.
+        existing={item['code'] for item in self.items}
+        if DEFAULT_CATALOG.exists():
+            with DEFAULT_CATALOG.open('r',encoding='utf-8-sig',newline='') as seed:
+                additions=[{k:(r.get(k) or '').strip() for k in HEADERS} for r in csv.DictReader(seed) if r.get('code') and r['code'] not in existing]
+            if additions:
+                with self.path.open('a',encoding='utf-8-sig',newline='') as f:
+                    writer=csv.DictWriter(f,fieldnames=HEADERS);writer.writerows(additions)
+                self.items.extend(additions)
+        self.items.sort(key=lambda r:r['code'])
         self.by_code={item['code']:item for item in self.items}
 
     def codes(self):return set(self.by_code)
@@ -35,6 +50,21 @@ class BudgetCatalog:
     def extract_code(self,text):return str(text).split(' – ')[0].strip()
 
     def match(self,description,origin,kind):
+        q=norm(description)
+        if any(t in q for t in ('giam tru du toan','thu hoi theo kien nghi kiem toan','thu hoi theo kien nghi thanh tra')): code='91'
+        elif any(t in q for t in ('du toan tam ung','tam ung du toan')):code='11'
+        elif any(t in q for t in ('du toan ung truoc','ung truoc du toan')):code='09'
+        elif any(t in q for t in ('du toan tam cap','tam cap du toan')):code='08'
+        elif any(t in q for t in ('du toan huy bo','huy bo du toan')):code='10'
+        elif any(t in q for t in ('nam truoc chuyen sang','nguon nam truoc chuyen sang','du toan chuyen nguon nam truoc')):code='06'
+        elif any(t in q for t in ('chuyen sang nam sau','chuyen sang nam tiep theo')):code='04'
+        elif any(t in q for t in ('dieu chinh sau chuyen nguon','dieu chinh sau khu so du am')):code='19'
+        elif 'dieu chinh' in q:code='03'
+        elif any(t in q for t in ('du toan dau nam','giao dau nam','giao du toan dau nam','du toan giao dau nam')):code='01'
+        elif any(t in q for t in ('bo sung du toan','du toan bo sung','giao bo sung','bo sung kinh phi','bo sung tu nguon')):code='02'
+        else:code=None
+        if code:return self.by_code.get(code)
+        q=norm(description)
         q=norm(description)
         o=norm(origin)
         k=norm(kind)

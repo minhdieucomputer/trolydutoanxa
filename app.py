@@ -1,3 +1,4 @@
+from funding_inference import analyze as analyze_funding
 """Trợ lý dự toán ngân sách xã — bản thử nghiệm, không kết nối TABMIS."""
 import csv
 import unicodedata
@@ -36,7 +37,7 @@ FIELDS = ['date','kind','description','amount','budget_level','account_debit','a
           'budget_type','chapter','sector_type','sector_item','econ_item','source_code']
 LABELS = ['Ngày chứng từ (YYYY-MM-DD)','Nghiệp vụ','Diễn giải','Số tiền (VND)','Cấp ngân sách',
           'Tài khoản Nợ','Tài khoản Có','Mã loại dự toán','Mã Chương','Mã Loại',
-          'Mã Khoản','Mã Mục/Tiểu mục','Mã nguồn NSNN']
+          'Mã Khoản','Tiểu mục','Mã nguồn NSNN']
 KINDS = ['Nhập dự toán cấp 0','Phân bổ cấp 0 → cấp 1','Phân bổ cấp 1 → cấp 4',
          'Bổ sung dự toán','Điều chỉnh tăng','Điều chỉnh giảm','Điều chỉnh sai mã/số tiền','Khác']
 
@@ -82,12 +83,13 @@ def find_sectors(description):
 
 # Danh mục mã loại dự toán có thể bổ sung qua CSV, không tự đặt mã số chưa xác minh.
 from budget_catalog import BudgetCatalog, HoverTip, infer_origin
+from source_catalog import SOURCES, BY_CODE as SOURCE_BY_CODE, suggest_source
 BUDGET_CATALOG = BudgetCatalog()
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.5.3 COMBOBOX GỢI Ý')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.6.0')
         self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
@@ -117,7 +119,13 @@ class App(tk.Tk):
         self.tab_batch=ttk.Frame(self.tabs,padding=12); self.tabs.add(self.tab_batch,text='Bộ 3 chứng từ / Phụ lục QĐ')
         self.tab_guide=ttk.Frame(self.tabs,padding=12); self.tabs.add(self.tab_guide,text='Hướng dẫn hạch toán')
         self.make_entry(); self.make_history(); self.make_catalog(); self.make_batch(); self.make_guide(); self.refresh_communes()
-        ttk.Label(self,text='LƯU Ý: Phần mềm không gửi dữ liệu lên mạng, không ghi TABMIS và không thay thế kiểm soát của cán bộ nghiệp vụ.',foreground='#8a3b20',padding=10).pack(fill='x')
+        ttk.Label(self,text='LƯU Ý: Phần mềm không gửi dữ liệu lên mạng, không ghi TABMIS và không thay thế kiểm soát của cán bộ nghiệp vụ.',foreground='#8a3b20',padding=(10,5)).pack(fill='x')
+        credit = ttk.Frame(self, padding=(12, 4, 12, 9))
+        credit.pack(fill='x')
+        ttk.Label(credit, text='Kho bạc Nhà nước Khu vực IV- Phòng Giao dịch số 4',
+                  font=('Segoe UI', 9, 'bold'), anchor='center').pack(fill='x')
+        ttk.Label(credit, text='Thiết kế bởi Mai Thị Huế - Đoàn Minh Điều',
+                  font=('Segoe UI', 9), anchor='center').pack(fill='x')
 
     def refresh_communes(self):
         rows=self.con.execute('SELECT id,name,area_code FROM communes ORDER BY name').fetchall()
@@ -153,9 +161,14 @@ class App(tk.Tk):
         self.vars['kind'].set(KINDS[0]);self.vars['budget_level'].set('4')
         self.origin=tk.StringVar(value='Giao đầu năm / thường xuyên')
         self.field_widgets={}
+        self.style=ttk.Style(self)
+        self.style.configure('Review.TCombobox', fieldbackground='#ffe2e2', foreground='#9d1010')
+        self.style.map('Review.TCombobox', fieldbackground=[('readonly','#ffe2e2')], foreground=[('readonly','#9d1010')])
+        self.style.configure('NormalReview.TCombobox', fieldbackground='white')
         for i,(k,label) in enumerate(zip(FIELDS,LABELS)):
             ttk.Label(left,text=label).grid(row=i,column=0,sticky='w',pady=5)
             if k=='kind': widget=ttk.Combobox(left,textvariable=self.vars[k],values=KINDS,state='readonly',width=49)
+            elif k=='source_code': widget=ttk.Combobox(left,textvariable=self.vars[k],values=[f"{r['code']} – {r['name']}" for r in SOURCES],width=49,state='readonly')
             elif k=='budget_type': widget=ttk.Combobox(left,textvariable=self.vars[k],values=BUDGET_CATALOG.display_values(),width=49,state='readonly')
             elif k in ('sector_type','sector_item'): widget=ttk.Combobox(left,textvariable=self.vars[k],values=[],width=49,state='readonly')
             elif k=='chapter': widget=ttk.Combobox(left,textvariable=self.vars[k],values=['999','800','819','820','821','822','823','829','830','831'],width=49)
@@ -163,8 +176,9 @@ class App(tk.Tk):
             else:widget=ttk.Entry(left,textvariable=self.vars[k],width=52)
             widget.grid(row=i,column=1,sticky='ew',padx=10,pady=5)
             self.field_widgets[k]=widget
-            if k in ('budget_type','chapter','sector_type','sector_item','account_debit','account_credit'):
+            if k in ('budget_type','chapter','sector_type','sector_item','account_debit','account_credit','source_code'):
                 HoverTip(widget, lambda key=k: self.describe_code(key))
+            if k=='source_code':widget.bind('<<ComboboxSelected>>',lambda e:self.on_source_selected())
             if k=='budget_type':
                 widget.bind('<<ComboboxSelected>>', lambda e:self.on_budget_type_selected())
             if k=='sector_item': widget.bind('<<ComboboxSelected>>',lambda e:self.on_sector_item_selected())
@@ -179,8 +193,12 @@ class App(tk.Tk):
             row=origin_row+2,column=0,columnspan=2,sticky='w',pady=3)
         ttk.Button(left,text='Nạp lại danh mục CSV',command=self.reload_budget_catalog).grid(
             row=origin_row+3,column=0,columnspan=2,sticky='w',pady=3)
-        self._auto_suggestion={'sector':None,'budget':None}
+        self._auto_suggestion={'sector':None,'budget':None,'source':None}
+        self.review_text=tk.StringVar(value='Chưa nhập diễn giải. Các ô cần kiểm tra sẽ được tô đỏ.')
+        ttk.Label(left,textvariable=self.review_text,foreground='#9d1010',wraplength=600).grid(row=origin_row+4,column=0,columnspan=2,sticky='w',pady=4)
         self.populate_sector_lists()
+        for key in ('budget_type','source_code','sector_item','chapter','account_debit','account_credit'):
+            self.field_widgets[key].bind('<<ComboboxSelected>>',lambda e:self.after_idle(self.refresh_review_flags),add='+')
         self.vars['description'].trace_add('write',lambda *_:self.update_keyword_hints())
         self.vars['kind'].trace_add('write',lambda *_:self.apply_origin())
         left.columnconfigure(1,weight=1)
@@ -190,11 +208,14 @@ class App(tk.Tk):
         ttk.Button(controls,text='Xem hướng dẫn nghiệp vụ',command=self.suggest).pack(side='left')
         ttk.Button(controls,text='Gợi ý mã ngành từ diễn giải',command=self.suggest_sector).pack(side='left',padx=8)
         ttk.Button(controls,text='Kiểm tra và lưu dự thảo',command=self.save_voucher).pack(side='left',padx=8)
-        ttk.Button(controls,text='Tạo phiếu từ nghiệp vụ',command=self.entry_to_forms).pack(side='left',padx=8)
+        ttk.Button(controls,text='Đưa nghiệp vụ vào phiếu / QĐ',command=self.add_entry_to_package).pack(side='left',padx=8)
+        ttk.Button(controls,text='Xem trước nghiệp vụ',command=self.preview_current_entry).pack(side='left',padx=5)
+        ttk.Button(controls,text='Xem bộ phiếu / Quyết định',command=self.open_package).pack(side='left',padx=8)
         right=ttk.LabelFrame(main,text='Căn cứ và lưu ý kiểm soát',padding=12);right.pack(side='left',fill='both',expand=True,padx=(16,0))
         self.guidance=tk.Text(right,wrap='word',width=44,height=25,font=('Segoe UI',10))
         self.guidance.pack(fill='both',expand=True)
         self.set_guidance('Chọn nghiệp vụ và bấm “Xem hướng dẫn nghiệp vụ”.\n\nỨng dụng KHÔNG tự điền tài khoản Nợ/Có khi thiếu dữ liệu nghiệp vụ hoặc chưa xác minh hiệu lực văn bản.')
+        self.refresh_review_flags()
 
     def populate_sector_lists(self, matches=None):
         """Danh sách Loại/Khoản: ưu tiên gợi ý, vẫn cho chọn mọi mã hợp lệ."""
@@ -246,12 +267,31 @@ class App(tk.Tk):
             self.vars['sector_type'].set('');self.vars['sector_item'].set('')
             self._auto_suggestion['sector']=None
         self.apply_origin()
+        self.refresh_review_flags()
         if matches:
             score,loai,khoan,name,_=matches[0]
             note=MLNS_BY_CODE.get(khoan,{}).get('ghi_chu','')
             self.set_guidance(self.guidance.get('1.0','end').strip()+
                 f'\n\nXẾP HẠNG MLNS: Loại {loai} / Khoản {khoan} – {name} ({score} điểm)\nGhi chú: {note}\n'+
                 ('Đã điền mã gợi ý có độ phù hợp cao, cần xác nhận.' if candidate else 'Chưa đủ tin cậy để tự điền mã. Mở danh sách Khoản để chọn.'))
+
+    def refresh_review_flags(self):
+        """Cảnh báo trực quan; không thay thế kiểm tra nghiệp vụ."""
+        if not hasattr(self,'review_text'):return
+        info=analyze_funding(self.vars['description'].get())
+        uncertain=[]
+        for key,title in [('budget_type','Mã loại dự toán'),('source_code','Mã nguồn NSNN'),
+                          ('sector_item','Mã Khoản'),('chapter','Mã Chương'),
+                          ('account_debit','Tài khoản Nợ'),('account_credit','Tài khoản Có')]:
+            value=self.vars[key].get().strip()
+            auto=self._auto_suggestion.get({'budget_type':'budget','source_code':'source','sector_item':'sector'}.get(key,''))
+            ambiguous=not value or (key=='source_code' and not auto) or (key=='chapter' and value=='999' and self.vars['kind'].get()!='Nhập dự toán cấp 0')
+            if ambiguous:uncertain.append(title)
+            widget=self.field_widgets.get(key)
+            if isinstance(widget,ttk.Combobox):widget.configure(style='Review.TCombobox' if ambiguous else 'TCombobox')
+        if info['uncertain']:uncertain.extend(info['uncertain'])
+        nature=info['nature'] or 'Chưa xác định'
+        self.review_text.set('TÍNH CHẤT KINH PHÍ: '+nature+' | CẦN KIỂM TRA (đỏ): '+(', '.join(uncertain) if uncertain else 'Không có ô trống; vẫn cần duyệt nghiệp vụ'))
 
     def apply_origin(self):
         if not hasattr(self,'guidance'):return
@@ -267,6 +307,12 @@ class App(tk.Tk):
         if detected and detected!=self.origin.get():
             self.origin.set(detected)
             rule=ORIGIN_RULES.get(detected,rule)
+        source_candidate=suggest_source(desc)
+        if source_candidate:
+            self.vars['source_code'].set(source_candidate['code'])
+            self._auto_suggestion['source']=source_candidate['code']
+        elif self.vars['source_code'].get()==self._auto_suggestion.get('source'):
+            self.vars['source_code'].set('');self._auto_suggestion['source']=None
         candidate=BUDGET_CATALOG.match(desc,self.origin.get(),self.vars['kind'].get())
         if candidate:
             self.vars['budget_type'].set(candidate['code'])
@@ -280,10 +326,13 @@ class App(tk.Tk):
             self.vars['account_debit'].set(debit);self.vars['account_credit'].set(credit)
         chapter_note='Cấp 0 thường dùng Chương 999 theo PL II CV 15602; xác minh niên độ.' if is_zero else 'Chương phải dựa trên đơn vị nhận dự toán, không chỉ từ khóa nghiệp vụ.'
         if is_zero:self.vars['chapter'].set('999')
-        self.set_guidance('NGUỒN GỐC: '+self.origin.get()+'\n\n'+rule['guide']+'\n\n'+sector+'\n\n'+chapter_note+'\n\n'+('Gợi ý tài khoản: Nợ '+debit+' / Có '+credit if is_zero and debit and credit else 'Không tự điền Nợ/Có: chưa đủ căn cứ hoặc không phải nhập cấp 0.')+'\n\nMã loại dự toán: '+(candidate['code']+' – '+candidate['name']+' (kiểm tra trước khi lưu)' if candidate else 'chưa có mã được đối chiếu trong danh mục CSV; cần bổ sung/kiểm tra.')+'\n\nLƯU Ý: Hướng dẫn theo CV 15602 (2017), chưa xác minh đầy đủ hiệu lực cho niên độ hiện hành.')
+        self.set_guidance('NGUỒN GỐC: '+self.origin.get()+'\n\n'+rule['guide']+'\n\n'+sector+'\n\n'+chapter_note+'\n\n'+('Gợi ý tài khoản: Nợ '+debit+' / Có '+credit if is_zero and debit and credit else 'Không tự điền Nợ/Có: chưa đủ căn cứ hoặc không phải nhập cấp 0.')+'\n\nMã nguồn chi NSNN: '+(source_candidate['code']+' – '+source_candidate['name'] if source_candidate else 'cần xác định theo tính chất kinh phí và cấp dự toán; không suy từ tên nguồn tăng thu/dự phòng.')+'\n\nMã loại dự toán: '+(candidate['code']+' – '+candidate['name']+' (kiểm tra trước khi lưu)' if candidate else 'chưa có mã được đối chiếu trong danh mục CSV; cần bổ sung/kiểm tra.')+'\n\nLƯU Ý: Hướng dẫn theo CV 15602 (2017), chưa xác minh đầy đủ hiệu lực cho niên độ hiện hành.')
 
     def describe_code(self,key):
         code=self.vars[key].get().split(' – ')[0].strip()
+        if key=='source_code':
+            item=SOURCE_BY_CODE.get(self.vars['source_code'].get().split(' – ')[0].strip())
+            return f"{item['code']} – {item['name']}\n{item['note']}\n{item['source']}" if item else 'Chọn mã nguồn chi NSNN theo tính chất kinh phí.'
         if key=='budget_type':
             item=BUDGET_CATALOG.get(code)
             return (f"{item['code']} – {item['name']}\nNguồn: {item['source']}\n{item['note']}" if item else 'Chưa có tên mã trong danh mục đã xác minh. Mở Danh sách mã loại dự toán để tra cứu.')
@@ -295,6 +344,13 @@ class App(tk.Tk):
         names={'9213':'Dự toán chi thường xuyên phân bổ cấp 0','9216':'Dự toán chi đầu tư phát triển phân bổ cấp 0',
                '9111':'Nguồn dự toán giao trong năm','9151':'Nguồn dự toán tăng thu'}
         return f'{code} – {names.get(code,"Cần tra cứu danh mục tài khoản và phạm vi áp dụng")}. Theo tài liệu CV 15602 (2017); xác minh hiệu lực.'
+
+    def on_source_selected(self):
+        code=self.vars['source_code'].get().split(' – ')[0].strip()
+        self.vars['source_code'].set(code)
+        self._auto_suggestion['source']=None
+        item=SOURCE_BY_CODE.get(code)
+        if item:self.set_guidance(f"MÃ NGUỒN {code} – {item['name']}\nNhóm: {item['group']}\n{item['note']}\nCăn cứ: {item['source']}\n\nKiểm tra cấp dự toán và hiệu lực áp dụng.")
 
     def on_budget_type_selected(self):
         code=BUDGET_CATALOG.extract_code(self.vars['budget_type'].get())
@@ -394,13 +450,97 @@ class App(tk.Tk):
         for key,title,width in [('loai','Mã Loại',95),('khoan','Mã Khoản',95),('name','Tên ngành / lĩnh vực',510),('match','Từ khóa khớp',210)]:
             self.catalog_tree.heading(key,text=title);self.catalog_tree.column(key,width=width)
         self.catalog_tree.pack(fill='both',expand=True)
+        # Hover tooltip và khung hướng dẫn, dùng nguyên văn phần ghi chú có trong CSV.
+        self.catalog_hover_window = None
+        self.catalog_hover_item = None
+        self.catalog_hover_after = None
+        self.catalog_detail = tk.StringVar(value='Di chuột lên mã Khoản hoặc chọn một dòng để xem tên, ghi chú và nguồn văn bản.')
+        detail_frame = ttk.LabelFrame(self.tab_catalog, text='Nội dung chi tiết theo danh mục MLNS', padding=8)
+        detail_frame.pack(fill='x', pady=(6, 0))
+        ttk.Label(detail_frame, textvariable=self.catalog_detail, wraplength=1050, justify='left').pack(anchor='w', fill='x')
+        self.catalog_tree.bind('<Motion>', self._catalog_hover_motion)
+        self.catalog_tree.bind('<Leave>', self._catalog_hide_hover)
+        self.catalog_tree.bind('<<TreeviewSelect>>', self._catalog_select_detail)
+        self.catalog_tree.bind('<MouseWheel>', self._catalog_hide_hover, add='+')
+
         foot=ttk.Frame(self.tab_catalog);foot.pack(fill='x',pady=9)
         ttk.Button(foot,text='Đưa mã Loại / Khoản vào phiếu',command=self.apply_sector).pack(side='left')
         self.catalog_status=tk.StringVar(value='Tra cứu theo tên, mã hoặc nhập một nghiệp vụ để tìm mã ngành.')
         ttk.Label(foot,textvariable=self.catalog_status,foreground='#555',wraplength=730).pack(side='left',padx=15)
         self.render_catalog([] ,all_items=True)
 
+    def _catalog_info(self, item):
+        if not item:
+            return ''
+        values = self.catalog_tree.item(item, 'values')
+        if len(values) < 2:
+            return ''
+        loai, khoan = str(values[0]), str(values[1])
+        record = MLNS_BY_CODE.get(khoan)
+        if not record:
+            return f'Loại {loai} / Khoản {khoan}: chưa có thông tin chi tiết trong danh mục.'
+        note = (record.get('ghi_chu') or '').strip()
+        source = (record.get('nguon') or '').strip()
+        status = (record.get('tinh_trang') or '').strip()
+        return (f"LOẠI {loai} / KHOẢN {khoan} — {record.get('ten','')}\n"
+                f"Nội dung hướng dẫn/ghi chú: {note if note else 'Danh mục chưa có ghi chú riêng cho Khoản này.'}\n"
+                f"Tình trạng: {status or 'Chưa xác định'}\n"
+                f"Nguồn: {source or 'Chưa ghi nguồn trong CSV'}. "
+                'Kiểm tra quy định hiện hành trước khi hạch toán.')
+
+    def _catalog_select_detail(self, event=None):
+        selected = self.catalog_tree.selection()
+        if selected:
+            self.catalog_detail.set(self._catalog_info(selected[0]))
+
+    def _catalog_hide_hover(self, event=None):
+        if self.catalog_hover_after is not None:
+            try: self.after_cancel(self.catalog_hover_after)
+            except Exception: pass
+            self.catalog_hover_after = None
+        if self.catalog_hover_window is not None:
+            try: self.catalog_hover_window.destroy()
+            except Exception: pass
+            self.catalog_hover_window = None
+        self.catalog_hover_item = None
+
+    def _catalog_hover_motion(self, event):
+        item = self.catalog_tree.identify_row(event.y)
+        if item == self.catalog_hover_item:
+            return
+        self._catalog_hide_hover()
+        if not item:
+            return
+        self.catalog_hover_item = item
+        self.catalog_hover_after = self.after(450, lambda item=item: self._catalog_show_hover(item))
+
+    def _catalog_show_hover(self, item):
+        self.catalog_hover_after = None
+        if item != self.catalog_hover_item or not self.catalog_tree.exists(item):
+            return
+        text = self._catalog_info(item)
+        if not text:
+            return
+        self.catalog_detail.set(text)
+        win = tk.Toplevel(self)
+        win.wm_overrideredirect(True)
+        try: win.wm_attributes('-topmost', True)
+        except Exception: pass
+        label = tk.Label(win, text=text, justify='left', anchor='w', bg='#fffbe6', fg='#1f2937',
+                         relief='solid', bd=1, padx=12, pady=10, wraplength=610,
+                         font=('Segoe UI', 10))
+        label.pack()
+        x = self.catalog_tree.winfo_pointerx() + 18
+        y = self.catalog_tree.winfo_pointery() + 18
+        # Tránh tooltip bị tràn ra khỏi màn hình.
+        win.update_idletasks()
+        x = min(x, max(0, win.winfo_screenwidth() - win.winfo_reqwidth() - 12))
+        y = min(y, max(0, win.winfo_screenheight() - win.winfo_reqheight() - 12))
+        win.wm_geometry(f'+{x}+{y}')
+        self.catalog_hover_window = win
+
     def render_catalog(self,results,all_items=False):
+        self._catalog_hide_hover()
         for row in self.catalog_tree.get_children():self.catalog_tree.delete(row)
         if all_items:
             rows=[(loai,khoan,name,'') for loai,khoan,name,_ in SECTORS]
@@ -442,6 +582,7 @@ class App(tk.Tk):
         data={k:v.get().strip() for k,v in self.vars.items()}
         for key in ('sector_type','sector_item'):
             data[key]=data[key].split(' – ')[0].strip()
+        data['source_code']=data['source_code'].split(' – ')[0].strip()
         data['budget_type']=BUDGET_CATALOG.extract_code(data['budget_type'])
         if data['budget_type'] and data['budget_type'] not in BUDGET_CATALOG.codes():
             if not messagebox.askyesno('Mã ngoài danh mục',
@@ -564,24 +705,28 @@ class App(tk.Tk):
         from batch_export import FIELDS as BATCH_FIELDS
         self.batch_rows=[]
         ttk.Label(self.tab_batch,text='LẬP ĐỒNG THỜI C6-02 CẤP 0, C6-01 CẤP 4 VÀ PHỤ LỤC QUYẾT ĐỊNH',font=('Segoe UI',12,'bold')).pack(anchor='w')
-        ttk.Label(self.tab_batch,text='Bản thử nghiệm: xuất 3 BẢNG CHUẨN BỊ Excel, chưa phải mẫu chứng từ KBNN chính thức. Mỗi dòng có thể khác Loại, Khoản, nguồn và đơn vị nhận.',foreground='#92430d',wraplength=1020).pack(anchor='w',pady=6)
+        ttk.Label(self.tab_batch,text='Dữ liệu từ tab Nghiệp vụ được chuyển tự động khi bấm Đưa vào phiếu. Nguồn cấp 0 và nguồn chi tiết cấp 4 là hai trường độc lập.\nBản thử nghiệm: xuất 3 BẢNG CHUẨN BỊ Excel, chưa phải mẫu chứng từ KBNN chính thức. Mỗi dòng có thể khác Loại, Khoản, nguồn và đơn vị nhận.',foreground='#92430d',wraplength=1020).pack(anchor='w',pady=6)
         meta=ttk.Frame(self.tab_batch);meta.pack(fill='x',pady=5)
         self.batch_meta={k:tk.StringVar(value=v) for k,v in [('year',str(datetime.now().year)),('decision',''),('decision_date',datetime.now().strftime('%Y-%m-%d'))]}
         for k,title in [('year','Năm ngân sách'),('decision','Số quyết định'),('decision_date','Ngày quyết định')]:
             ttk.Label(meta,text=title).pack(side='left',padx=(8,3));ttk.Entry(meta,textvariable=self.batch_meta[k],width=17).pack(side='left')
         form=ttk.LabelFrame(self.tab_batch,text='Thêm dòng dự toán',padding=8);form.pack(fill='x',pady=6)
         self.batch_vars={k:tk.StringVar() for k in BATCH_FIELDS}
-        labels={'noi_dung':'Nội dung nhiệm vụ','loai':'Mã Loại','khoan':'Mã Khoản','nguon':'Mã nguồn','chuong':'Mã Chương','don_vi':'Đơn vị nhận','qhns':'Mã ĐVQHNS','so_tien':'Số tiền (VND)'}
-        for i,k in enumerate(BATCH_FIELDS):
+        self.batch_vars['nguon_cap0']=tk.StringVar()
+        labels={'noi_dung':'Nội dung nhiệm vụ','loai':'Mã Loại','khoan':'Mã Khoản','nguon':'Nguồn chi tiết cấp 4','nguon_cap0':'Nguồn cấp 0','chuong':'Mã Chương','don_vi':'Đơn vị nhận','qhns':'Mã ĐVQHNS','so_tien':'Số tiền (VND)'}
+        for i,k in enumerate([*BATCH_FIELDS,'nguon_cap0']):
             r=i//4;c=(i%4)*2
             ttk.Label(form,text=labels[k]).grid(row=r,column=c,sticky='w',padx=3,pady=5)
-            ttk.Entry(form,textvariable=self.batch_vars[k],width=21).grid(row=r,column=c+1,sticky='ew',padx=4,pady=5)
+            (ttk.Combobox(form,textvariable=self.batch_vars[k],width=19,values=[f"{x['code']} – {x['name']}" for x in SOURCES]) if k in ('nguon','nguon_cap0') else ttk.Entry(form,textvariable=self.batch_vars[k],width=21)).grid(row=r,column=c+1,sticky='ew',padx=4,pady=5)
         bar=ttk.Frame(self.tab_batch);bar.pack(fill='x',pady=5)
         ttk.Button(bar,text='Thêm dòng',command=self.batch_add).pack(side='left')
         ttk.Button(bar,text='Xóa dòng đã chọn',command=self.batch_remove).pack(side='left',padx=6)
         ttk.Button(bar,text='Xuất đồng thời 3 bảng Excel',command=self.batch_export).pack(side='left',padx=6)
-        ttk.Button(bar,text='Chọn mẫu C6 / QĐ / PL để xuất',command=self.batch_to_forms).pack(side='left',padx=6)
-        cols=tuple(BATCH_FIELDS)
+        ttk.Button(bar,text='Tạo phiếu và quyết định từ toàn bộ nghiệp vụ',command=self.batch_to_forms).pack(side='left',padx=6)
+        ttk.Button(bar,text='Xem trước bộ phiếu / QĐ',command=self.preview_package).pack(side='left',padx=6)
+        ttk.Button(bar,text='Sửa nghiệp vụ đã chọn',command=self.batch_edit_selected).pack(side='left',padx=6)
+        ttk.Button(bar,text='Thêm từ màn hình Nghiệp vụ',command=self.add_entry_to_package).pack(side='left',padx=6)
+        cols=tuple([*BATCH_FIELDS,'nguon_cap0'])
         self.batch_tree=ttk.Treeview(self.tab_batch,columns=cols,show='headings',height=12)
         for k in cols:
             self.batch_tree.heading(k,text=labels[k]);self.batch_tree.column(k,width=180 if k in ('noi_dung','don_vi') else 95)
@@ -591,14 +736,15 @@ class App(tk.Tk):
 
     def batch_add(self):
         from batch_export import check_rows
-        row={k:v.get().strip() for k,v in self.batch_vars.items()}
+        row={k:(v.get().split(' – ')[0].strip() if k in ('nguon','nguon_cap0') else v.get().strip()) for k,v in self.batch_vars.items()}
         try:
             row['so_tien']=int(row['so_tien'].replace(',','').replace('.','').replace(' ',''))
             check_rows([row])
         except (ValueError,KeyError) as e:
             return messagebox.showerror('Dữ liệu không hợp lệ',str(e))
         self.batch_rows.append(row)
-        self.batch_tree.insert('','end',values=[f'{row[k]:,}' if k=='so_tien' else row[k] for k in row])
+        self.batch_vars['nguon_cap0'].set('')
+        self.batch_tree.insert('','end',values=[f'{row[k]:,}' if k=='so_tien' else row.get(k,'') for k in self.batch_vars])
         self.batch_total.set(f'{len(self.batch_rows)} dòng | Tổng: {sum(r["so_tien"] for r in self.batch_rows):,} VND')
         for k in ('noi_dung','so_tien'):self.batch_vars[k].set('')
 
@@ -623,6 +769,125 @@ class App(tk.Tk):
             messagebox.showinfo('Đã tạo 3 bảng dự thảo',f'Tổng tiền: {total:,} VND\n\n'+ '\n'.join(str(p) for p in paths)+'\n\nCần kiểm tra, hoàn thiện theo mẫu chính thức trước khi gửi KBNN.')
         except Exception as e:messagebox.showerror('Không xuất được',str(e))
 
+    def _preview_rows(self, rows, title):
+        """Read-only on-screen review, NOT a rendering of the statutory template."""
+        from form_export import FORM_NAMES
+        if not rows:
+            return messagebox.showwarning('Chưa có nghiệp vụ', 'Chưa có dữ liệu để xem trước.')
+        win=tk.Toplevel(self); win.title(title+' - BẢN XEM TRƯỚC DỮ LIỆU');win.geometry('1100x690')
+        win.transient(self)
+        ttk.Label(win,text=title,font=('Segoe UI',15,'bold')).pack(anchor='w',padx=14,pady=(12,4))
+        ttk.Label(win,text='XEM TRƯỚC DỮ LIỆU DỰ THẢO, KHÔNG PHẢI BỐ CỤC MẪU C6 / QUYẾT ĐỊNH CHÍNH THỨC.',foreground='#a01a1a').pack(anchor='w',padx=14)
+        selected=tk.StringVar(value='C601')
+        frame=ttk.Frame(win);frame.pack(fill='x',padx=14,pady=8)
+        ttk.Label(frame,text='Xem dữ liệu cho mẫu:').pack(side='left')
+        cb=ttk.Combobox(frame,textvariable=selected,state='readonly',width=63,
+            values=[f'{k} — {v}' for k,v in FORM_NAMES.items()]);cb.pack(side='left',padx=8)
+        cb.set('C601 — '+FORM_NAMES['C601'])
+        columns=('stt','noi_dung','ma_loai_du_toan','nguon','chuong','loai','khoan','tk_no','tk_co','so_tien')
+        names=('STT','Diễn giải','Loại DT','Nguồn','Chương','Loại','Khoản','TK Nợ','TK Có','Số tiền')
+        table_frame=ttk.Frame(win);table_frame.pack(fill='both',expand=True,padx=14,pady=6)
+        tree=ttk.Treeview(table_frame,columns=columns,show='headings',height=15)
+        for key,label in zip(columns,names):
+            tree.heading(key,text=label)
+            tree.column(key,width=320 if key=='noi_dung' else 88,anchor='e' if key=='so_tien' else 'w')
+        tree.pack(side='left',fill='both',expand=True)
+        sb=ttk.Scrollbar(table_frame,orient='vertical',command=tree.yview);sb.pack(side='right',fill='y');tree.configure(yscrollcommand=sb.set)
+        total=0; problems=[]
+        for i,row in enumerate(rows,1):
+            total+=int(row.get('so_tien',0) or 0)
+            missing=[label for key,label in [('ma_loai_du_toan','Loại DT'),('nguon','Nguồn'),('chuong','Chương'),('loai','Loại'),('khoan','Khoản'),('tk_no','TK Nợ'),('tk_co','TK Có')] if not str(row.get(key,'')).strip()]
+            if missing:problems.append(f'Dòng {i}: cần kiểm tra '+', '.join(missing))
+            values=[i]+[row.get(k,'') for k in columns[1:-1]]+[f'{int(row.get("so_tien",0) or 0):,}']
+            tree.insert('','end',values=values,tags=('warning',) if missing else ())
+        tree.tag_configure('warning',background='#ffe0e0')
+        ttk.Label(win,text=f'{len(rows)} nghiệp vụ  |  Tổng cộng: {total:,} VND',font=('Segoe UI',12,'bold')).pack(anchor='e',padx=18,pady=4)
+        notes=tk.Text(win,height=5,wrap='word',font=('Segoe UI',10));notes.pack(fill='x',padx=14,pady=6)
+        notes.insert('1.0','CÁC Ô CẦN XÁC NHẬN:\n'+('\n'.join(problems) if problems else 'Không có ô trống theo kiểm tra sơ bộ. Vẫn cần đối chiếu nghiệp vụ và căn cứ pháp lý.'))
+        notes.configure(state='disabled')
+        ttk.Button(win,text='Đóng xem trước',command=win.destroy).pack(pady=8)
+
+    def preview_current_entry(self):
+        data={k:v.get().strip() for k,v in self.vars.items()}
+        try:amount=int(data['amount'].replace(',','').replace('.','').replace(' ',''))
+        except ValueError:return messagebox.showwarning('Số tiền','Nhập số tiền trước khi xem trước.')
+        if not data['description'].strip() or amount<=0:
+            return messagebox.showwarning('Nghiệp vụ','Nhập diễn giải và số tiền lớn hơn 0.')
+        def code(k):return data[k].split(' – ')[0].strip()
+        row={'noi_dung':data['description'],'so_tien':amount,'ma_loai_du_toan':BUDGET_CATALOG.extract_code(data['budget_type']),
+             'nguon':code('source_code'),'chuong':code('chapter'),'loai':code('sector_type'),
+             'khoan':code('sector_item'),'tk_no':code('account_debit'),'tk_co':code('account_credit')}
+        self._preview_rows([row],'Xem trước nghiệp vụ đang nhập')
+
+    def preview_package(self):
+        self._preview_rows(self.batch_rows,'Xem trước toàn bộ bộ phiếu / quyết định')
+
+    def batch_edit_selected(self):
+        selection=self.batch_tree.selection()
+        if len(selection)!=1:return messagebox.showwarning('Chọn dòng','Chọn một nghiệp vụ cần sửa.')
+        item=selection[0];idx=self.batch_tree.index(item);row=self.batch_rows[idx]
+        win=tk.Toplevel(self);win.title('Sửa nghiệp vụ trong bộ phiếu');win.geometry('660x620');win.transient(self);win.grab_set()
+        fields=[('noi_dung','Nội dung diễn giải'),('ma_loai_du_toan','Mã loại dự toán'),('nguon','Mã nguồn'),('chuong','Chương'),('loai','Loại'),('khoan','Khoản'),('tk_no','Tài khoản Nợ'),('tk_co','Tài khoản Có'),('don_vi','Đơn vị nhận'),('qhns','Mã ĐVQHNS'),('so_tien','Số tiền')]
+        inputs={}
+        for i,(key,label) in enumerate(fields):
+            ttk.Label(win,text=label).grid(row=i,column=0,sticky='w',padx=14,pady=7)
+            v=tk.StringVar(value=str(row.get(key,'')));inputs[key]=v
+            ttk.Entry(win,textvariable=v,width=57).grid(row=i,column=1,sticky='ew',padx=10,pady=7)
+        def save():
+            try:
+                amount=int(inputs['so_tien'].get().replace(',','').replace('.','').replace(' ',''))
+                if amount<=0:raise ValueError()
+            except ValueError:return messagebox.showerror('Số tiền','Số tiền phải là số nguyên dương.',parent=win)
+            for key,_ in fields:row[key]=amount if key=='so_tien' else inputs[key].get().strip()
+            self.batch_tree.item(item,values=[f'{row[k]:,}' if k=='so_tien' else row.get(k,'') for k in self.batch_vars])
+            self.batch_total.set(f'{len(self.batch_rows)} dòng | Tổng: {sum(r["so_tien"] for r in self.batch_rows):,} VND')
+            win.destroy()
+        ttk.Button(win,text='Lưu chỉnh sửa',command=save).grid(row=len(fields),column=1,sticky='e',padx=14,pady=16)
+
+    def add_entry_to_package(self):
+        """Gom nhieu nghiep vu vao mot bo chung tu, chua xuat cho den khi nguoi dung yeu cau."""
+        if not self.commune_id():
+            return messagebox.showwarning('Chưa chọn xã', 'Chọn xã/phường trước khi thêm nghiệp vụ.')
+        data={k:v.get().strip() for k,v in self.vars.items()}
+        if not data['description']:
+            return messagebox.showwarning('Thiếu diễn giải', 'Nhập nội dung diễn giải nghiệp vụ.')
+        try:
+            amount=int(data['amount'].replace(',','').replace('.','').replace(' ',''))
+            if amount<=0: raise ValueError()
+            datetime.strptime(data['date'],'%Y-%m-%d')
+        except ValueError:
+            return messagebox.showerror('Dữ liệu không hợp lệ','Kiểm tra ngày YYYY-MM-DD và số tiền VND lớn hơn 0.')
+        def code(k): return data[k].split(' – ')[0].strip()
+        row={'don_vi':'','qhns':'','chuong':code('chapter'),'loai':code('sector_type'),
+             'khoan':code('sector_item'),'nguon':code('source_code'),'nguon_cap0':'',
+             'noi_dung':data['description'],'so_tien':amount,
+             'ma_loai_du_toan':BUDGET_CATALOG.extract_code(data['budget_type']),
+             'tk_no':code('account_debit'),'tk_co':code('account_credit'),
+             'nguon_goc':self.origin.get(),'ngay_nghiep_vu':data['date']}
+        if not row['ma_loai_du_toan']:
+            if not messagebox.askyesno('Chưa có mã loại dự toán',
+                'Danh mục mã loại dự toán chưa có quy tắc khớp diễn giải.\n'
+                'Thêm nghiệp vụ vào bộ phiếu ở trạng thái CHỜ XÁC NHẬN mã?',parent=self):
+                return
+        self.batch_rows.append(row)
+        self.batch_vars['nguon_cap0'].set('')
+        self.batch_tree.insert('','end',values=[f'{row[k]:,}' if k=='so_tien' else row[k] for k in self.batch_vars])
+        self.batch_total.set(f'{len(self.batch_rows)} dòng | Tổng: {sum(r["so_tien"] for r in self.batch_rows):,} VND')
+        self.batch_meta['year'].set(data['date'][:4])
+        self.vars['description'].set('')
+        self.vars['amount'].set('')
+        self.tabs.select(self.tab_batch)
+        messagebox.showinfo('Đã thêm nghiệp vụ',
+            f'Đã thêm dòng thứ {len(self.batch_rows)} vào bộ phiếu.\n'
+            'Dòng đã chuyển ngay sang tab Bộ 3 chứng từ / Quyết định.\n'
+            'Vui lòng xác định riêng NGUỒN CẤP 0 trước khi xuất; nguồn cấp 4 được giữ chi tiết.\n'
+            'Tiếp tục nhập nghiệp vụ khác, sau đó tạo phiếu và quyết định.')
+
+    def open_package(self):
+        self.tabs.select(self.tab_batch)
+        if not self.batch_rows:
+            messagebox.showinfo('Bộ phiếu đang trống','Hãy bấm “Thêm nghiệp vụ vào bộ phiếu” cho từng dòng trước.')
+
     def entry_to_forms(self):
         data={k:v.get().strip() for k,v in self.vars.items()}
         try:
@@ -644,6 +909,8 @@ class App(tk.Tk):
         self.choose_forms([row],data['year'],'',data['date'])
 
     def batch_to_forms(self):
+        if not self.batch_rows:
+            return messagebox.showwarning('Bộ phiếu trống','Chưa có nghiệp vụ nào trong bộ phiếu.')
         self.choose_forms(self.batch_rows,self.batch_meta['year'].get(),
                           self.batch_meta['decision'].get(),self.batch_meta['decision_date'].get())
 
@@ -651,10 +918,13 @@ class App(tk.Tk):
         from form_export import FORM_NAMES, export_selected
         if not self.commune_id():return messagebox.showwarning('Chua chon xa','Chon xa/phuong truoc.')
         if not rows:return messagebox.showwarning('Chua co du lieu','Can co it nhat mot dong nghiep vu.')
-        win=tk.Toplevel(self);win.title('Tao phieu tu nghiep vu - ban du thao 0.4');win.geometry('670x570')
+        if any(not r.get('nguon_cap0') for r in rows):
+            if not messagebox.askyesno('Nguồn cấp 0 chưa xác định', 'Một số dòng chưa có mã nguồn cấp 0.\nXuất bảng DỰ THẢO có cảnh báo để tiếp tục đối chiếu (không dùng để nhập TABMIS)?'):
+                return
+        win=tk.Toplevel(self);win.title('Tạo bộ phiếu và quyết định từ nhiều nghiệp vụ - bản dự thảo');win.geometry('720x610')
         win.transient(self);win.grab_set()
-        ttk.Label(win,text='CHON CAC MAU CAN TAO',font=('Segoe UI',14,'bold')).pack(anchor='w',padx=18,pady=(16,5))
-        ttk.Label(win,text='CAC FILE XUAT LA BANG DU THAO DOI CHIEU, CHUA PHAI MAU CHUAN TT26 / KBNN.',foreground='#9C321A',wraplength=620).pack(anchor='w',padx=18,pady=5)
+        ttk.Label(win,text=f'CHỌN MẪU XUẤT CHO {len(rows)} NGHIỆP VỤ | TỔNG {sum(r["so_tien"] for r in rows):,} VND',font=('Segoe UI',13,'bold')).pack(anchor='w',padx=18,pady=(16,5))
+        ttk.Label(win,text='File xuất là bảng DỰ THẢO tổng hợp, chưa phải mẫu C6/Quyết định chính thức. Kiểm tra mã loại dự toán và định khoản trước khi ký.',foreground='#9C321A',wraplength=650).pack(anchor='w',padx=18,pady=5)
         flags={code:tk.BooleanVar(value=(code in ('C601','C602','C603','C604'))) for code in FORM_NAMES}
         for code,name in FORM_NAMES.items():
             ttk.Checkbutton(win,text=code+' — '+name,variable=flags[code]).pack(anchor='w',padx=22,pady=5)
@@ -679,7 +949,8 @@ class App(tk.Tk):
                 win.destroy();messagebox.showinfo('Da xuat ban du thao',f'{len(paths)} file | Tong {total:,} VND\n\n'+
                     '\n'.join(str(p) for p in paths)+'\n\nChua phai chung tu chinh thuc.')
             except Exception as exc:messagebox.showerror('Loi xuat',str(exc),parent=win)
-        ttk.Button(win,text='Xuat cac bang DU THAO Excel da chon',command=go).pack(pady=14)
+        ttk.Button(win,text='Xem trước dữ liệu cho các mẫu đã chọn',command=lambda:self._preview_rows(rows,'Xem trước bộ chứng từ')).pack(pady=6)
+        ttk.Button(win,text='Xuất các bảng DỰ THẢO Excel đã chọn',command=go).pack(pady=8)
 
     def make_guide(self):
         txt=tk.Text(self.tab_guide,wrap='word',font=('Segoe UI',11),padx=15,pady=12)

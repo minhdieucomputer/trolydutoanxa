@@ -1,1 +1,12 @@
 ﻿code,name,source,keywords,origins,kinds,note
+01,Dự toán đầu năm,"CV 15602/BTC-KBNN – Phần A, mục II.4",,,,Là dự toán chính thức được Hội đồng nhân dân quyết định và giao đầu năm.
+02,Dự toán bổ sung,"CV 15602/BTC-KBNN – Phần A, mục II.4",,,,"Là dự toán bổ sung trong năm ngân sách được Hội đồng nhân dân quyết định ngoài dự toán đầu năm (từ nguồn tăng thu NSĐP, nguồn viện trợ…)."
+03,Dự toán điều chỉnh theo quyết định của cấp có thẩm quyền,"CV 15602/BTC-KBNN – Phần A, mục II.4",,,,"Là dự toán điều chỉnh tăng hoặc giảm theo quyết định của cấp có thẩm quyền; điều chỉnh từ kinh phí không thực hiện chế độ tự chủ sang kinh phí thực hiện chế độ tự chủ, kinh phí không thường xuyên sang kinh phí thường xuyên."
+04,Dự toán chuyển sang năm tiếp theo,"CV 15602/BTC-KBNN – Phần A, mục II.4",,,,Là dự toán của năm ngân sách chưa sử dụng hết được chuyển sang năm sau cấp phát tiếp và quyết toán vào ngân sách năm sau theo chế độ quy định.
+06,Dự toán năm trước chuyển sang,"CV 15602/BTC-KBNN – Phần A, mục II.4",,,,Là dự toán của ngân sách năm trước còn lại chưa sử dụng hết được phép chuyển sang năm nay cấp phát tiếp và quyết toán vào ngân sách năm nay.
+08,Dự toán tạm cấp,"CV 15602/BTC-KBNN – Phần A, mục II.4",,,,Là dự toán được tạm cấp trong trường hợp đầu năm ngân sách khi dự toán ngân sách và phương án phân bổ dự toán NSNN chưa được cơ quan nhà nước có thẩm quyền quyết định.
+09,Dự toán ứng trước,"CV 15602/BTC-KBNN – Phần A, mục II.4",,,,Là dự toán được ứng trước cho năm sau theo Quyết định của cấp có thẩm quyền. (để hạch toán ứng trước dự toán ngân sách năm sau đối với các trường hợp quy định tại Điều 57 Luật NSNN.
+10,Dự toán hủy bỏ,"CV 15602/BTC-KBNN – Phần A, mục II.4",,,,Là dự toán hủy bỏ theo chế độ quy định.
+11,Dự toán tạm ứng,"CV 15602/BTC-KBNN – Phần A, mục II.4",,,,"Là dự toán tạm ứng khi cấp có thẩm quyền tạm ứng ngân sách từ nguồn thường xuyên cho các cơ quan, đơn vị trực thuộc hoặc từ ngân sách cấp trên cho ngân sách cấp dưới của cấp có thẩm quyền; khi cấp có thẩm quyền quyết định bố trí bổ sung dự toán ngân sách hoàn trả tạm ứng ngân sách, thì thực hiện bổ sung dự toán ngân sách đồng thời thu hồi tạm ứng ngân sách."
+19,Dự toán điều chỉnh,"CV 15602/BTC-KBNN – Phần A, mục II.4",,,,Là dự toán dùng trong các bút toán điều chỉnh dự toán sau khi đã chạy khử số dư âm và chương trình chuyển nguồn.
+91,Giảm trừ dự toán,"CV 15602/BTC-KBNN – Phần A, mục II.4",,,,"Là dự toán cấp có thẩm quyền thu hồi theo kiến nghị của cơ quan kiểm toán nhà nước, cơ quan thanh tra, cơ quan tài chính."

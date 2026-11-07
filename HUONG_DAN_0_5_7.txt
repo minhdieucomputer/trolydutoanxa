@@ -1,0 +1,1 @@
+0.5.7: Trong tab Tra cứu MLNS / Gợi ý mã ngành, rê chuột lên một dòng mã Khoản để hiện popup tên, ghi chú, tình trạng và nguồn pháp lý từ mlns_loai_khoan.csv. Chọn dòng để xem nội dung ở ô hướng dẫn phía dưới. Không tự tạo nội dung ghi chú không có trong CSV. Chưa kiểm thử giao diện trên Windows.

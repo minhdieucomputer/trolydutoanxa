@@ -1,0 +1,1 @@
+0.5.9: Đổi nhãn Mã Mục/Tiểu mục thành Tiểu mục. Khi bấm Đưa nghiệp vụ vào phiếu/QĐ, dòng xuất hiện ngay trong tab Bộ 3 chứng từ / Phụ lục QĐ. Thêm trường mã nguồn cấp 0 riêng, giữ mã nguồn cấp 4 chi tiết. Không tự quy đổi nguồn giữa hai cấp khi chưa có căn cứ. Trước khi xuất dự thảo, cảnh báo nguồn cấp 0 trống. Các tệp Excel vẫn là bảng dự thảo, không phải mẫu chính thức.

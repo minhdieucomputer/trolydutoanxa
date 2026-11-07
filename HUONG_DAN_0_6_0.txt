@@ -1,0 +1,3 @@
+Phiên bản 0.6.0: Bổ sung thông tin đơn vị và người thiết kế tại chân giao diện chính. Không thay đổi logic nghiệp vụ.
+Kho bạc Nhà nước Khu vực IV- Phòng Giao dịch số 4
+Thiết kế bởi Mai Thị Huế - Đoàn Minh Điều

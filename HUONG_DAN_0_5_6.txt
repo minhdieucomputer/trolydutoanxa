@@ -1,0 +1,1 @@
+0.5.6: Tự nhận diện tính chất kinh phí (tự chủ/không tự chủ/đầu tư/thường xuyên) theo diễn giải. Tô đỏ các ô còn thiếu hoặc chưa có gợi ý nguồn đáng tin cậy. Không tự suy ra mã nguồn NSNN từ tên tính chất kinh phí. Kiểm tra nghiệp vụ trước khi xuất phiếu. Chưa thử nghiệm trên Windows.
