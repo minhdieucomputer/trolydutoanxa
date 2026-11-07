@@ -1,0 +1,1 @@
+0.6.4: Khắc phục mã loại dự toán trống; tự phục hồi danh mục CSV từ bộ cài, nạp danh sách vào Combobox, gợi ý theo diễn giải và nguồn gốc. Nếu vẫn trống: kiểm tra GitHub Actions đã đóng gói MA_LOAI_DU_TOAN_HUONG_DAN.csv.

@@ -1,0 +1,1 @@
+0.6.6: Nhập tổng tiền quyết định tại tab Nghiệp vụ; đối chiếu tức thời với tổng dòng mã ngành tại tab Bộ 3 chứng từ; hiển thị thiếu/vượt/khớp; cảnh báo và chặn xuất khi không khớp. Số tiền chỉ lưu trong phiên làm việc hiện tại, chưa lưu lâu dài vào SQLite.

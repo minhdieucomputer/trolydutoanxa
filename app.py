@@ -83,13 +83,13 @@ def find_sectors(description):
 
 # Danh mục mã loại dự toán có thể bổ sung qua CSV, không tự đặt mã số chưa xác minh.
 from budget_catalog import BudgetCatalog, HoverTip, infer_origin
-from source_catalog import SOURCES, BY_CODE as SOURCE_BY_CODE, suggest_source
+from source_catalog import SOURCES, BY_CODE as SOURCE_BY_CODE, suggest_source, source_display_values
 BUDGET_CATALOG = BudgetCatalog()
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.6.3')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.6.7')
         self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
@@ -154,7 +154,9 @@ class App(tk.Tk):
         self.vars={k:tk.StringVar() for k in FIELDS}
         self.vars['date'].set(datetime.now().strftime('%Y-%m-%d'))
         self.vars['kind'].set(KINDS[0]);self.vars['budget_level'].set('4')
+        self.vars['source_code'].set('99')  # Mặc định người dùng yêu cầu; cần xác minh mã nguồn trước khi xuất chính thức
         self.origin=tk.StringVar(value='Giao đầu năm / thường xuyên')
+        self.decision_total=tk.StringVar(value='')  # Tổng số tiền được giao theo quyết định
         self.field_widgets={}
         self.style=ttk.Style(self)
         self.style.configure('Review.TCombobox', fieldbackground='#ffe2e2', foreground='#9d1010')
@@ -163,7 +165,7 @@ class App(tk.Tk):
         for i,(k,label) in enumerate(zip(FIELDS,LABELS)):
             ttk.Label(left,text=label).grid(row=i,column=0,sticky='w',pady=5)
             if k=='kind': widget=ttk.Combobox(left,textvariable=self.vars[k],values=KINDS,state='readonly',width=49)
-            elif k=='source_code': widget=ttk.Combobox(left,textvariable=self.vars[k],values=[f"{r['code']} – {r['name']}" for r in SOURCES],width=49,state='readonly')
+            elif k=='source_code': widget=ttk.Combobox(left,textvariable=self.vars[k],values=source_display_values(),width=49,state='readonly')
             elif k=='budget_type': widget=ttk.Combobox(left,textvariable=self.vars[k],values=BUDGET_CATALOG.display_values(),width=49,state='readonly')
             elif k in ('sector_type','sector_item'): widget=ttk.Combobox(left,textvariable=self.vars[k],values=[],width=49,state='readonly')
             elif k=='chapter': widget=ttk.Combobox(left,textvariable=self.vars[k],values=['999','800','819','820','821','822','823','829','830','831'],width=49)
@@ -184,6 +186,9 @@ class App(tk.Tk):
         origin_box.grid(row=origin_row,column=1,sticky='ew',padx=10,pady=5)
         origin_box.bind('<<ComboboxSelected>>',lambda e:self.apply_origin())
         HoverTip(origin_box, lambda: ORIGIN_RULES.get(self.origin.get(),{}).get('guide','Chọn nguồn dự toán'))
+        ttk.Label(left,text='Tổng số tiền quyết định giao (VND)',font=('Segoe UI',10,'bold')).grid(row=origin_row+1,column=0,sticky='w',pady=5)
+        ttk.Entry(left,textvariable=self.decision_total,width=52).grid(row=origin_row+1,column=1,sticky='ew',padx=10,pady=5)
+        self.decision_total.trace_add('write',lambda *_:self.update_package_reconciliation() if hasattr(self,'batch_rows') else None)
         ttk.Button(left,text='Danh sách mã loại dự toán / tra cứu',command=self.open_budget_catalog).grid(
             row=origin_row+2,column=0,columnspan=2,sticky='w',pady=3)
         ttk.Button(left,text='Nạp lại danh mục CSV',command=self.reload_budget_catalog).grid(
@@ -292,6 +297,10 @@ class App(tk.Tk):
         if not hasattr(self,'guidance'):return
         rule=ORIGIN_RULES.get(self.origin.get())
         if not rule:return
+        # Đồng bộ lại danh mục khi bản cài trước đã tạo CSV rỗng.
+        if not BUDGET_CATALOG.items:
+            BUDGET_CATALOG.reload()
+        self.field_widgets['budget_type']['values']=BUDGET_CATALOG.display_values()
         desc=self.vars['description'].get().strip()
         suggestions=find_sectors(desc)
         sector='Chưa nhận diện Loại/Khoản từ mô tả.'
@@ -307,7 +316,7 @@ class App(tk.Tk):
             self.vars['source_code'].set(source_candidate['code'])
             self._auto_suggestion['source']=source_candidate['code']
         elif self.vars['source_code'].get()==self._auto_suggestion.get('source'):
-            self.vars['source_code'].set('');self._auto_suggestion['source']=None
+            self.vars['source_code'].set('99');self._auto_suggestion['source']=None
         candidate=BUDGET_CATALOG.match(desc,self.origin.get(),self.vars['kind'].get())
         if candidate and (not self.vars['budget_type'].get() or self.vars['budget_type'].get()==self._auto_suggestion.get('budget')):
             self.vars['budget_type'].set(candidate['code']+' – '+candidate['name'])
@@ -705,14 +714,22 @@ class App(tk.Tk):
         self.batch_meta={k:tk.StringVar(value=v) for k,v in [('year',str(datetime.now().year)),('decision',''),('decision_date',datetime.now().strftime('%Y-%m-%d'))]}
         for k,title in [('year','Năm ngân sách'),('decision','Số quyết định'),('decision_date','Ngày quyết định')]:
             ttk.Label(meta,text=title).pack(side='left',padx=(8,3));ttk.Entry(meta,textvariable=self.batch_meta[k],width=17).pack(side='left')
+        reconcile=ttk.LabelFrame(self.tab_batch,text='ĐỐI CHIẾU TỔNG TIỀN QUYẾT ĐỊNH VỚI CÁC DÒNG MÃ NGÀNH',padding=8)
+        reconcile.pack(fill='x',pady=5)
+        ttk.Label(reconcile,text='Tổng tiền quyết định (nhập tại tab Nghiệp vụ):').pack(side='left')
+        ttk.Entry(reconcile,textvariable=self.decision_total,width=22).pack(side='left',padx=8)
+        self.reconcile_text=tk.StringVar(value='Chưa nhập tổng số tiền quyết định.')
+        self.reconcile_label=tk.Label(reconcile,textvariable=self.reconcile_text,fg='#a11919',font=('Segoe UI',10,'bold'))
+        self.reconcile_label.pack(side='left',padx=12)
         form=ttk.LabelFrame(self.tab_batch,text='Thêm dòng dự toán',padding=8);form.pack(fill='x',pady=6)
         self.batch_vars={k:tk.StringVar() for k in BATCH_FIELDS}
-        self.batch_vars['nguon_cap0']=tk.StringVar()
+        self.batch_vars['nguon_cap0']=tk.StringVar(value='99')
+        self.batch_vars['nguon'].set('99')
         labels={'noi_dung':'Nội dung nhiệm vụ','loai':'Mã Loại','khoan':'Mã Khoản','nguon':'Nguồn chi tiết cấp 4','nguon_cap0':'Nguồn cấp 0','chuong':'Mã Chương','don_vi':'Đơn vị nhận','qhns':'Mã ĐVQHNS','so_tien':'Số tiền (VND)'}
         for i,k in enumerate([*BATCH_FIELDS,'nguon_cap0']):
             r=i//4;c=(i%4)*2
             ttk.Label(form,text=labels[k]).grid(row=r,column=c,sticky='w',padx=3,pady=5)
-            (ttk.Combobox(form,textvariable=self.batch_vars[k],width=19,values=[f"{x['code']} – {x['name']}" for x in SOURCES]) if k in ('nguon','nguon_cap0') else ttk.Entry(form,textvariable=self.batch_vars[k],width=21)).grid(row=r,column=c+1,sticky='ew',padx=4,pady=5)
+            (ttk.Combobox(form,textvariable=self.batch_vars[k],width=19,values=source_display_values()) if k in ('nguon','nguon_cap0') else ttk.Entry(form,textvariable=self.batch_vars[k],width=21)).grid(row=r,column=c+1,sticky='ew',padx=4,pady=5)
         bar=ttk.Frame(self.tab_batch);bar.pack(fill='x',pady=5)
         ttk.Button(bar,text='Thêm dòng',command=self.batch_add).pack(side='left')
         ttk.Button(bar,text='Xóa dòng đã chọn',command=self.batch_remove).pack(side='left',padx=6)
@@ -728,6 +745,57 @@ class App(tk.Tk):
         self.batch_tree.pack(fill='both',expand=True,pady=8)
         self.batch_total=tk.StringVar(value='0 dòng | Tổng: 0 VND')
         ttk.Label(self.tab_batch,textvariable=self.batch_total,font=('Segoe UI',11,'bold')).pack(anchor='e')
+        self.update_package_reconciliation()
+
+    @staticmethod
+    def parse_vnd(value):
+        raw=str(value).strip().replace(' ', '').replace(',', '').replace('.', '')
+        if not raw or not raw.isdigit():
+            raise ValueError('Tổng số tiền quyết định phải là số nguyên dương (VND).')
+        amount=int(raw)
+        if amount<=0:raise ValueError('Tổng số tiền quyết định phải lớn hơn 0.')
+        return amount
+
+    def reconciliation(self, rows=None):
+        rows=self.batch_rows if rows is None else rows
+        allocated=sum(int(r.get('so_tien',0) or 0) for r in rows)
+        try:expected=self.parse_vnd(self.decision_total.get())
+        except ValueError:return None,allocated,None
+        return expected,allocated,expected-allocated
+
+    def update_package_reconciliation(self):
+        if not hasattr(self,'reconcile_text'):return
+        expected,allocated,difference=self.reconciliation()
+        if expected is None:
+            msg=f'Đã phân bổ: {allocated:,} VND | Chưa nhập tổng tiền quyết định'
+            color='#a11919'
+        elif difference>0:
+            msg=f'Đã phân bổ: {allocated:,} / {expected:,} VND | CÒN THIẾU: {difference:,} VND'
+            color='#a11919'
+        elif difference<0:
+            msg=f'Đã phân bổ: {allocated:,} / {expected:,} VND | VƯỢT: {-difference:,} VND'
+            color='#a11919'
+        else:
+            msg=f'ĐÃ KHỚP: {allocated:,} / {expected:,} VND (chênh lệch 0)'
+            color='#137333'
+        self.reconcile_text.set(msg)
+        self.reconcile_label.configure(fg=color)
+
+    def confirm_reconciliation(self, rows=None):
+        expected,allocated,difference=self.reconciliation(rows)
+        if expected is None:
+            messagebox.showwarning('Thiếu tổng tiền quyết định',
+                'Nhập Tổng số tiền quyết định giao dự toán ở tab Nghiệp vụ trước khi xuất.')
+            return False
+        if difference:
+            label='CÒN THIẾU' if difference>0 else 'PHÂN BỔ VƯỢT'
+            messagebox.showwarning('Chưa khớp quyết định',
+                f'Tổng tiền quyết định: {expected:,} VND\n'
+                f'Tổng các dòng mã ngành: {allocated:,} VND\n'
+                f'{label}: {abs(difference):,} VND\n\n'
+                'Hãy bổ sung hoặc sửa các dòng trong bộ phiếu trước khi xuất.')
+            return False
+        return True
 
     def batch_add(self):
         from batch_export import check_rows
@@ -738,18 +806,21 @@ class App(tk.Tk):
         except (ValueError,KeyError) as e:
             return messagebox.showerror('Dữ liệu không hợp lệ',str(e))
         self.batch_rows.append(row)
-        self.batch_vars['nguon_cap0'].set('')
+        self.batch_vars['nguon_cap0'].set('99')
         self.batch_tree.insert('','end',values=[f'{row[k]:,}' if k=='so_tien' else row.get(k,'') for k in self.batch_vars])
         self.batch_total.set(f'{len(self.batch_rows)} dòng | Tổng: {sum(r["so_tien"] for r in self.batch_rows):,} VND')
+        self.update_package_reconciliation()
         for k in ('noi_dung','so_tien'):self.batch_vars[k].set('')
 
     def batch_remove(self):
         for item in sorted(self.batch_tree.selection(),key=lambda x:self.batch_tree.index(x),reverse=True):
             idx=self.batch_tree.index(item);self.batch_tree.delete(item);self.batch_rows.pop(idx)
         self.batch_total.set(f'{len(self.batch_rows)} dòng | Tổng: {sum(r["so_tien"] for r in self.batch_rows):,} VND')
+        self.update_package_reconciliation()
 
     def batch_export(self):
         from batch_export import export_package
+        if not self.confirm_reconciliation():return
         if not self.commune_id():return messagebox.showwarning('Chưa chọn xã','Chọn xã/phường trước.')
         try:
             year=int(self.batch_meta['year'].get())
@@ -797,6 +868,17 @@ class App(tk.Tk):
             tree.insert('','end',values=values,tags=('warning',) if missing else ())
         tree.tag_configure('warning',background='#ffe0e0')
         ttk.Label(win,text=f'{len(rows)} nghiệp vụ  |  Tổng cộng: {total:,} VND',font=('Segoe UI',12,'bold')).pack(anchor='e',padx=18,pady=4)
+        expected,allocated,difference=self.reconciliation(rows)
+        if expected is None:
+            status='CHƯA NHẬP TỔNG TIỀN QUYẾT ĐỊNH'
+        elif difference>0:
+            status=f'CÒN THIẾU {difference:,} VND so với quyết định {expected:,} VND'
+        elif difference<0:
+            status=f'PHÂN BỔ VƯỢT {-difference:,} VND so với quyết định {expected:,} VND'
+        else:
+            status=f'ĐÃ KHỚP QUYẾT ĐỊNH: {expected:,} VND'
+        ttk.Label(win,text=status,font=('Segoe UI',12,'bold'),foreground='#137333' if difference==0 else '#a11919').pack(anchor='e',padx=18,pady=4)
+
         notes=tk.Text(win,height=5,wrap='word',font=('Segoe UI',10));notes.pack(fill='x',padx=14,pady=6)
         notes.insert('1.0','CÁC Ô CẦN XÁC NHẬN:\n'+('\n'.join(problems) if problems else 'Không có ô trống theo kiểm tra sơ bộ. Vẫn cần đối chiếu nghiệp vụ và căn cứ pháp lý.'))
         notes.configure(state='disabled')
@@ -810,7 +892,7 @@ class App(tk.Tk):
             return messagebox.showwarning('Nghiệp vụ','Nhập diễn giải và số tiền lớn hơn 0.')
         def code(k):return data[k].split(' – ')[0].strip()
         row={'noi_dung':data['description'],'so_tien':amount,'ma_loai_du_toan':BUDGET_CATALOG.extract_code(data['budget_type']),
-             'nguon':code('source_code'),'chuong':code('chapter'),'loai':code('sector_type'),
+             'nguon':code('source_code') or '99','chuong':code('chapter'),'loai':code('sector_type'),
              'khoan':code('sector_item'),'tk_no':code('account_debit'),'tk_co':code('account_credit')}
         self._preview_rows([row],'Xem trước nghiệp vụ đang nhập')
 
@@ -836,6 +918,7 @@ class App(tk.Tk):
             for key,_ in fields:row[key]=amount if key=='so_tien' else inputs[key].get().strip()
             self.batch_tree.item(item,values=[f'{row[k]:,}' if k=='so_tien' else row.get(k,'') for k in self.batch_vars])
             self.batch_total.set(f'{len(self.batch_rows)} dòng | Tổng: {sum(r["so_tien"] for r in self.batch_rows):,} VND')
+            self.update_package_reconciliation()
             win.destroy()
         ttk.Button(win,text='Lưu chỉnh sửa',command=save).grid(row=len(fields),column=1,sticky='e',padx=14,pady=16)
 
@@ -854,7 +937,7 @@ class App(tk.Tk):
             return messagebox.showerror('Dữ liệu không hợp lệ','Kiểm tra ngày YYYY-MM-DD và số tiền VND lớn hơn 0.')
         def code(k): return data[k].split(' – ')[0].strip()
         row={'don_vi':'','qhns':'','chuong':code('chapter'),'loai':code('sector_type'),
-             'khoan':code('sector_item'),'nguon':code('source_code'),'nguon_cap0':'',
+             'khoan':code('sector_item'),'nguon':code('source_code') or '99','nguon_cap0':'99',
              'noi_dung':data['description'],'so_tien':amount,
              'ma_loai_du_toan':BUDGET_CATALOG.extract_code(data['budget_type']),
              'tk_no':code('account_debit'),'tk_co':code('account_credit'),
@@ -865,9 +948,10 @@ class App(tk.Tk):
                 'Thêm nghiệp vụ vào bộ phiếu ở trạng thái CHỜ XÁC NHẬN mã?',parent=self):
                 return
         self.batch_rows.append(row)
-        self.batch_vars['nguon_cap0'].set('')
+        self.batch_vars['nguon_cap0'].set('99')
         self.batch_tree.insert('','end',values=[f'{row[k]:,}' if k=='so_tien' else row[k] for k in self.batch_vars])
         self.batch_total.set(f'{len(self.batch_rows)} dòng | Tổng: {sum(r["so_tien"] for r in self.batch_rows):,} VND')
+        self.update_package_reconciliation()
         self.batch_meta['year'].set(data['date'][:4])
         self.vars['description'].set('')
         self.vars['amount'].set('')
@@ -904,12 +988,14 @@ class App(tk.Tk):
         self.choose_forms([row],data['year'],'',data['date'])
 
     def batch_to_forms(self):
+        if not self.confirm_reconciliation():return
         if not self.batch_rows:
             return messagebox.showwarning('Bộ phiếu trống','Chưa có nghiệp vụ nào trong bộ phiếu.')
         self.choose_forms(self.batch_rows,self.batch_meta['year'].get(),
                           self.batch_meta['decision'].get(),self.batch_meta['decision_date'].get())
 
     def choose_forms(self,rows,year,decision,decision_date):
+        if not self.confirm_reconciliation(rows):return
         from form_export import FORM_NAMES, export_selected
         if not self.commune_id():return messagebox.showwarning('Chua chon xa','Chon xa/phuong truoc.')
         if not rows:return messagebox.showwarning('Chua co du lieu','Can co it nhat mot dong nghiep vu.')
@@ -930,6 +1016,7 @@ class App(tk.Tk):
             ttk.Label(info,text=label).grid(row=i,column=0,sticky='w',pady=4)
             ttk.Entry(info,textvariable=vars_[k],width=32).grid(row=i,column=1,sticky='w',padx=10,pady=4)
         def go():
+            if not self.confirm_reconciliation(rows):return
             selected=[c for c,v in flags.items() if v.get()]
             if not selected:return messagebox.showwarning('Chua chon','Chon it nhat mot mau.',parent=win)
             try:

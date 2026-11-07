@@ -19,3 +19,8 @@ def suggest_source(description):
     for code,terms in rules:
         if code in BY_CODE and any(t in q for t in terms):return BY_CODE[code]
     return None
+
+
+def source_display_values():
+    """Mã 99 là mặc định thao tác theo yêu cầu người dùng, không khẳng định là mã hợp lệ cho mọi nghiệp vụ."""
+    return ['99 – Mặc định nhập liệu (cần xác minh theo nghiệp vụ)'] + [f"{r['code']} – {r['name']}" for r in SOURCES if r['code'] != '99']

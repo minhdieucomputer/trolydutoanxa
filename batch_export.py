@@ -59,12 +59,12 @@ def export_package(folder, commune, year, decision, decision_date, rows):
     # Cấp 0 chỉ tổng hợp theo loại và nguồn. Tài khoản/COA phải được cán bộ đối chiếu.
     p0=make('01_C6-02_cap_0_DU_THAO.xlsx','BẢNG CHUẨN BỊ PHIẾU C6-02/NS — CẤP 0',
         ['Mã Loại (lĩnh vực)','Mã nguồn cấp 0 (cần xác nhận)','Số tiền (VND)'],c0,
-        'BẢN DỰ THẢO — Nguồn cấp 0 để trống nếu chưa xác minh; KHÔNG dùng nguồn cấp 4 thay thế. Chưa xác định TK Nợ/Có, mã nhiệm vụ chi cấp 0 và các COA.')
+        'BẢN DỰ THẢO — Mã 99 là giá trị mặc định người dùng yêu cầu, KHÔNG đồng nghĩa đã xác minh mã nguồn cấp 0. Kiểm tra nguồn cấp 0 độc lập với cấp 4; chưa xác định TK Nợ/Có và COA.')
     detail=[(r['noi_dung'],r['loai'],r['khoan'],r['nguon'],r['chuong'],r['don_vi'],r['qhns'],int(r['so_tien'])) for r in rows]
     p4=make('02_C6-01_phan_bo_cap_4_DU_THAO.xlsx','BẢNG CHUẨN BỊ PHIẾU C6-01 — PHÂN BỔ CẤP 4',
         ['Nội dung','Mã Loại','Mã Khoản','Mã nguồn chi tiết cấp 4','Mã Chương','Đơn vị nhận','Mã ĐVQHNS','Số tiền (VND)'],detail,
-        'BẢN DỰ THẢO — KHÔNG PHẢI PHIẾU GỬI KBNN. Cần xác minh mẫu C6-01, tuyến phân bổ, tài khoản và tổ hợp COA.')
+        'BẢN DỰ THẢO — Mã nguồn 99 là giá trị mặc định, cần kiểm tra mã nguồn chi tiết cấp 4 theo nghiệp vụ. KHÔNG PHẢI PHIẾU GỬI KBNN.')
     annex=make('03_Phu_luc_quyet_dinh_DU_THAO.xlsx','PHỤ LỤC KÈM QUYẾT ĐỊNH GIAO DỰ TOÁN',
         ['Nội dung nhiệm vụ','Mã Loại','Mã Khoản','Mã nguồn chi tiết cấp 4','Mã Chương','Đơn vị nhận','Mã ĐVQHNS','Số tiền (VND)'],detail,
-        'DỰ THẢO PHỤ LỤC — Cần đối chiếu quyết định, niên độ, danh mục MLNS và phê duyệt trước khi ban hành.')
+        'DỰ THẢO PHỤ LỤC — Mã nguồn 99 chỉ là mặc định nhập liệu. Cần đối chiếu mã nguồn chi tiết, quyết định, niên độ và phê duyệt.')
     return [p0,p4,annex],total

@@ -10,6 +10,22 @@ CATALOG=DATA_DIR/'danh_muc_ma_loai_du_toan.csv'
 DEFAULT_CATALOG=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent))/'MA_LOAI_DU_TOAN_HUONG_DAN.csv'
 HEADERS=['code','name','source','keywords','origins','kinds','note']
 
+# Danh mục dự phòng nằm trực tiếp trong mã Python, hoạt động cả khi EXE
+# bị thiếu CSV trong _MEIPASS hoặc file danh mục người dùng từ bản cũ rỗng.
+BUILTIN_NAMES={
+ '01':'Dự toán đầu năm', '02':'Dự toán bổ sung',
+ '03':'Dự toán điều chỉnh theo quyết định của cấp có thẩm quyền',
+ '04':'Dự toán chuyển sang năm tiếp theo', '06':'Dự toán năm trước chuyển sang',
+ '08':'Dự toán tạm cấp', '09':'Dự toán ứng trước',
+ '10':'Dự toán hủy bỏ', '11':'Dự toán tạm ứng',
+ '19':'Dự toán điều chỉnh', '91':'Giảm trừ dự toán',
+}
+def builtin_rows():
+    return [dict(code=code,name=name,source='CV 15602/BTC-KBNN – kiểm tra áp dụng',
+                 keywords='',origins='',kinds='',note='Đối chiếu nghiệp vụ và văn bản hiện hành trước khi xuất')
+            for code,name in BUILTIN_NAMES.items()]
+
+
 def norm(value):
     text=unicodedata.normalize('NFD',str(value).lower().replace('đ','d'))
     return ' '.join(''.join(c for c in text if unicodedata.category(c)!='Mn').split())
@@ -21,27 +37,37 @@ class BudgetCatalog:
 
     def reload(self):
         self.path.parent.mkdir(parents=True,exist_ok=True)
+        defaults=builtin_rows()
+        if DEFAULT_CATALOG.exists():
+            with DEFAULT_CATALOG.open('r',encoding='utf-8-sig',newline='') as f:
+                csv_rows=[{k:(r.get(k) or '').strip() for k in HEADERS}
+                          for r in csv.DictReader(f) if (r.get('code') or '').strip()]
+                defaults=list({r['code']:r for r in defaults+csv_rows}.values())
         if not self.path.exists():
             with self.path.open('w',encoding='utf-8-sig',newline='') as f:
                 writer=csv.DictWriter(f,fieldnames=HEADERS)
-                writer.writeheader()
-                if DEFAULT_CATALOG.exists():
-                    with DEFAULT_CATALOG.open('r',encoding='utf-8-sig',newline='') as seed:
-                        for item in csv.DictReader(seed):
-                            writer.writerow({key:item.get(key,'') for key in HEADERS})
-        with self.path.open('r',encoding='utf-8-sig',newline='') as f:
-            self.items=[{k:(row.get(k) or '').strip() for k in HEADERS}
-                        for row in csv.DictReader(f) if (row.get('code') or '').strip()]
-        # Nạp bổ sung mã mặc định khi người dùng đã có file CSV rỗng từ bản cũ.
-        existing={item['code'] for item in self.items}
-        if DEFAULT_CATALOG.exists():
-            with DEFAULT_CATALOG.open('r',encoding='utf-8-sig',newline='') as seed:
-                additions=[{k:(r.get(k) or '').strip() for k in HEADERS} for r in csv.DictReader(seed) if r.get('code') and r['code'] not in existing]
-            if additions:
-                with self.path.open('a',encoding='utf-8-sig',newline='') as f:
-                    writer=csv.DictWriter(f,fieldnames=HEADERS);writer.writerows(additions)
-                self.items.extend(additions)
-        self.items.sort(key=lambda r:r['code'])
+                writer.writeheader();writer.writerows(defaults)
+        try:
+            with self.path.open('r',encoding='utf-8-sig',newline='') as f:
+                reader=csv.DictReader(f)
+                rows=[{k:(r.get(k) or '').strip() for k in HEADERS}
+                      for r in reader if (r.get('code') or '').strip()]
+        except (OSError,UnicodeError,csv.Error,KeyError):
+            rows=[]
+        # Luôn có danh mục gốc trong bộ cài; bổ sung những mã thiếu từ các bản cũ.
+        # Không ghi đè mã người dùng đã chỉnh sửa.
+        by_code={r['code']:r for r in rows}
+        # Các bản cũ có thể lưu dòng chỉ có mã, không có tên.
+        missing=[r for r in defaults if r['code'] not in by_code or not by_code[r['code']]['name']]
+        if missing:
+            by_code.update({r['code']:r for r in missing})
+            try:
+                with self.path.open('w',encoding='utf-8-sig',newline='') as f:
+                    writer=csv.DictWriter(f,fieldnames=HEADERS)
+                    writer.writeheader();writer.writerows(by_code.values())
+            except OSError:
+                pass  # Danh mục tích hợp vẫn sử dụng được khi file bị khóa
+        self.items=sorted(by_code.values(),key=lambda r:r['code'])
         self.by_code={item['code']:item for item in self.items}
 
     def codes(self):return set(self.by_code)

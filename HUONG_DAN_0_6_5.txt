@@ -1,0 +1,1 @@
+0.6.5: Mã nguồn NSNN và hai nguồn cấp 0/cấp 4 có danh sách chọn từ MA_NGUON_CHI_15602.csv. Mặc định 99 theo yêu cầu người dùng, không xác nhận 99 là mã hợp lệ cho mọi nghiệp vụ. Cấp 0 và cấp 4 lưu riêng; bảng dự thảo C6-02, C6-01 và phụ lục quyết định xuất riêng theo trường nguồn tương ứng. Kiểm tra mã nguồn trước khi sử dụng chính thức.

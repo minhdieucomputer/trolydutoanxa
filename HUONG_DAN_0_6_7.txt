@@ -1,0 +1,1 @@
+0.6.7: Sửa danh mục Mã loại dự toán trống. Danh mục 11 mã được nhúng trực tiếp trong budget_catalog.py, không phụ thuộc CSV trong bộ cài. Mở ứng dụng, chọn Giao đầu năm / thường xuyên, ô Mã loại dự toán gợi ý 01. Bấm mũi tên để xem đủ danh sách. Nếu đang chạy bộ cài cũ cần build lại từ mã nguồn này.
