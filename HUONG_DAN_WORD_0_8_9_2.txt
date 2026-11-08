@@ -1,0 +1,12 @@
+PHIEN BAN 0.8.9.2 - XUAT QUYET DINH WORD CO THE CHINH SUA
+
+1. Tai noi dung ma nguon len GitHub (bao gom app.py, decision_word.py, requirements.txt, installer.iss).
+2. Chay lai GitHub Actions, tai Setup tu lan build moi nhat.
+3. Trong tab Bo 3 chung tu / Phu luc QD: nhap thong tin quyet dinh va dong nghiep vu.
+4. Bam nut chon xem truoc phieu/quyet dinh, chon 'Xuat Quyet dinh Word'.
+5. Chon du thao UBND xa, Mau B hoac Mau C; chon noi luu file .docx.
+
+CANH BAO: Mau B va Mau C hien la ban du thao tham chieu, KHONG PHAI ban sao xac thuc cua mau quy dinh.
+Can cung cap file Word mau B/C goc de can chinh dung the thuc va noi dung truoc khi dung chinh thuc.
+Khong tu dong bo sung can cu phap ly, thẩm quyen, noi nhan hoac chu ky.
+Khong thay doi chuc nang C6/PDF va du lieu SQLite.

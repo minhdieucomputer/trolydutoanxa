@@ -91,7 +91,7 @@ BUDGET_CATALOG = BudgetCatalog()
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.8')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.9.2')
         self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
@@ -1076,6 +1076,41 @@ class App(tk.Tk):
         except Exception as exc:
             messagebox.showerror('Không xem trước / in được quyết định',str(exc))
 
+    def export_decision_word(self):
+        """Export editable draft; separate from PDF C6 printing."""
+        from tkinter import filedialog
+        from decision_word import create_decision_word, FORM_LABELS
+        if not self.batch_rows:
+            return messagebox.showwarning('Chưa có dữ liệu', 'Hãy thêm nghiệp vụ vào bảng trước khi xuất Word.')
+        try:
+            total=self.parse_vnd(self.decision_total.get())
+            metadata={k:v.get().strip() for k,v in self.decision_vars.items()}
+            metadata.update(number=self.batch_meta['decision'].get().strip(),
+                            date=self.batch_meta['decision_date'].get().strip(),
+                            year=self.batch_meta['year'].get().strip(), total=total)
+        except Exception as exc:
+            return messagebox.showerror('Thông tin quyết định',str(exc))
+        win=tk.Toplevel(self);win.title('Xuất quyết định Word có thể chỉnh sửa')
+        win.geometry('600x285');win.transient(self);win.grab_set()
+        ttk.Label(win,text='CHỌN LOẠI DỰ THẢO QUYẾT ĐỊNH WORD',font=('Segoe UI',12,'bold')).pack(pady=(14,9))
+        selected=tk.StringVar(value='UBND')
+        for key,label in FORM_LABELS.items():
+            ttk.Radiobutton(win,text=label,variable=selected,value=key).pack(anchor='w',padx=20,pady=4)
+        ttk.Label(win,text='Mẫu B/C hiện là bản dự thảo tham chiếu, chưa được đối chiếu với mẫu Word gốc.\nKiểm tra thẩm quyền và thể thức trước khi ban hành.',foreground='#9a5300',wraplength=550).pack(pady=8)
+        def do_export():
+            form=selected.get()
+            path=filedialog.asksaveasfilename(parent=win,title='Lưu quyết định Word',
+                defaultextension='.docx',filetypes=[('Word (.docx)','*.docx')],
+                initialfile='Quyet_dinh_du_toan_'+form+'.docx')
+            if not path:return
+            try:
+                create_decision_word(path,metadata,self.batch_rows,form)
+                win.destroy()
+                messagebox.showinfo('Đã xuất Word','Đã tạo file Word có thể chỉnh sửa:\n'+path+'\n\nKiểm tra biểu mẫu và căn cứ pháp lý trước khi ký.')
+                if os.name=='nt':os.startfile(path)
+            except Exception as exc:messagebox.showerror('Không xuất được Word',str(exc),parent=win)
+        ttk.Button(win,text='XUẤT FILE WORD (.DOCX)',command=do_export).pack(pady=6)
+
     def print_pdf_file(self, path, document_name='chứng từ'):
         """Windows: yêu cầu xác nhận trước khi gửi PDF đến máy in mặc định."""
         if os.name != 'nt':
@@ -1255,7 +1290,7 @@ class App(tk.Tk):
             return messagebox.showwarning('Nghiệp vụ','Nhập diễn giải và số tiền lớn hơn 0.')
         def code(k):return data[k].split(' – ')[0].strip()
         row={'noi_dung':data['description'],'so_tien':amount,'ma_loai_du_toan':BUDGET_CATALOG.extract_code(data['budget_type']),
-             'nguon':code('source_code') or '99','chuong':code('chapter'),'loai':code('sector_type'),
+             'nguon':code('source_code') or '','chuong':code('chapter'),'loai':code('sector_type'),
              'khoan':code('sector_item'),'tk_no':code('account_debit'),'tk_co':code('account_credit')}
         self._preview_rows([row],'Xem trước nghiệp vụ đang nhập')
 
@@ -1273,6 +1308,7 @@ class App(tk.Tk):
             ('C603','C6-03 – Chứng từ phân bổ dự toán (mẫu gốc tham khảo)'),
             ('C604','C6-04 – Phiếu điều chỉnh dự toán (đã điền dữ liệu)'),
             ('QD','Quyết định giao dự toán và phụ lục (bản dự thảo)'),
+            ('QD_WORD','Xuất Quyết định Word (UBND xã / Mẫu B / Mẫu C)'),
         ]
         chosen=tk.StringVar(value='C601')
         for key,label in options:
@@ -1286,6 +1322,8 @@ class App(tk.Tk):
                 self.preview_package(key)
             elif key=='QD':
                 self.preview_decision()
+            elif key=='QD_WORD':
+                self.export_decision_word()
             else:
                 from print_preview import open_reference_template
                 try:
@@ -1364,7 +1402,7 @@ class App(tk.Tk):
             return messagebox.showerror('Dữ liệu không hợp lệ','Kiểm tra ngày YYYY-MM-DD và số tiền VND lớn hơn 0.')
         def code(k): return data[k].split(' – ')[0].strip()
         row={'don_vi':'','qhns':'','chuong':code('chapter'),'loai':code('sector_type'),
-             'khoan':code('sector_item'),'nguon':code('source_code') or '99','nguon_cap0':'99','qhns_cap0':self.current_org_code(),
+             'khoan':code('sector_item'),'nguon':code('source_code') or '','nguon_cap0':'99','qhns_cap0':self.current_org_code(),
              'noi_dung':data['description'],'so_tien':amount,
              'ma_loai_du_toan':BUDGET_CATALOG.extract_code(data['budget_type']),
              'tk_no':code('account_debit'),'tk_co':code('account_credit'),

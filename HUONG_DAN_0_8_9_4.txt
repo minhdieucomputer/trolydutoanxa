@@ -1,0 +1,1 @@
+Sửa mã nguồn cấp 4 trong phụ lục Word: chỉ chấp nhận mã có trong MA_NGUON_CHI_15602.csv; không dùng 99 của nguồn cấp 0. Mã 42/43/44 là các ví dụ, danh mục còn có các mã khác. Nếu dữ liệu cũ đang lưu 99 ở trường nguồn cấp 4, chọn lại đúng mã theo nghiệp vụ trước khi xuất Word. Cập nhật toàn bộ mã nguồn lên GitHub và build lại.
