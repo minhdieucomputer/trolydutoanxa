@@ -1,0 +1,16 @@
+TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ 0.8.8
+
+Sửa lỗi worker PDF bị Windows đóng (exit 3221226505 / 0xC0000409).
+- Thay xử lý PDF C6 dùng PyMuPDF bằng pypdf + reportlab.
+- Giữ nguyên PDF mẫu gốc và vị trí ánh xạ trường hiện có.
+- Giữ worker riêng, log lỗi và kiểm tra tạo PDF C6-01 trên GitHub Actions.
+- Đã thử tạo C6-01, C6-02, C6-04 và mẫu tham khảo C6-03 trong môi trường phát triển.
+
+CẬP NHẬT GITHUB
+1. Sao lưu dữ liệu trong phần mềm.
+2. Giải nén ZIP, tải nội dung trong thư mục trolydutoanxa-main lên repository, kể cả .github/workflows.
+3. Commit lên main; chạy Actions > Build Windows installer.
+4. Chỉ tải Setup từ build mới có bước PASS: C6-01 PDF generated.
+5. Kiểm tra bản 0.8.8 và chức năng Xem trước C6-01.
+
+Lưu ý: chưa kiểm thử bộ cài thực tế trên Windows; cần kiểm tra lại bố cục và tính chính xác nghiệp vụ trước khi in chính thức.

@@ -91,7 +91,7 @@ BUDGET_CATALOG = BudgetCatalog()
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.7')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.8')
         self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
