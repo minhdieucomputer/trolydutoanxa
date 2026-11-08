@@ -206,6 +206,45 @@ def create_preview(code, rows, commune='', year='', decision='', decision_date='
     return path
 
 
+def _c602_cell(page, bounds, value, font, size=7, align=1):
+    """Write a single line strictly inside a C6-02 cell (no column overflow)."""
+    text = str(value if value is not None else '').strip().replace('\n', ' ')
+    if not text:
+        return
+    x0, y0, x1, y1 = bounds
+    available = max(1, x1 - x0 - 3)
+    font_name = font if font in pdfmetrics.getRegisteredFontNames() else 'Helvetica'
+    chosen = size
+    while chosen > 4.0 and pdfmetrics.stringWidth(text, font_name, chosen) > available:
+        chosen = round(chosen - .25, 2)
+    if pdfmetrics.stringWidth(text, font_name, chosen) > available:
+        # Keep narrow fields legible; never print over the neighbouring cell.
+        while text and pdfmetrics.stringWidth(text + '…', font_name, chosen) > available:
+            text = text[:-1]
+        text = text + '…' if text else ''
+    if not text:
+        return
+    c = page._canvas
+    c.setFont(font_name, chosen)
+    c.setFillColorRGB(0, 0, 0)
+    width = pdfmetrics.stringWidth(text, font_name, chosen)
+    x = (x1 - width - 1.5) if align == 2 else (x0 + (x1 - x0 - width) / 2 if align == 1 else x0 + 1.5)
+    baseline = page.rect.height - (y0 + (y1 - y0 + chosen) / 2 - 1)
+    c.drawString(x, baseline, text)
+
+
+def _c602_short_date(value):
+    """Compact decision date to fit the original narrow date column."""
+    from datetime import datetime
+    raw = str(value or '').strip()
+    for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+        try:
+            return datetime.strptime(raw, fmt).strftime('%d/%m/%y')
+        except ValueError:
+            pass
+    return raw
+
+
 def create_c602_preview(rows, commune='', year='', decision='', decision_date='', expected=None):
     """Điền C6-02 trên nền mẫu PDF gốc; phần thân bảng kéo dài theo số dòng."""
     if not rows:
@@ -241,24 +280,28 @@ def create_c602_preview(rows, commune='', year='', decision='', decision_date=''
             page.draw_line(PdfCompat.Point(cols[0],y),PdfCompat.Point(cols[-1],y),color=(0,0,0),width=.65)
         # Hàng tổng ở đầu thân bảng.
         _write(page,(67,181,255,198),'Tổng số:',font,8)
-        _write(page,(694,181,760,198),_money(total),font,8,2)
+        _c602_cell(page,(693,181,760,198),_money(total),font,7,2)
         for i,r in enumerate(part):
             y=top+(i+1)*line_h+4
-            val=[str(offset+i+1),r.get('noi_dung',''),decision,decision_date,
+            val=[str(offset+i+1),r.get('noi_dung',''),decision,_c602_short_date(decision_date),
                  r.get('ma_loai_du_toan',''),r.get('tk_no',''),r.get('cap_ns','0') or '0',
                  r.get('qhns_cap0',''),r.get('chuong',''),r.get('khoan',''),
                  r.get('ctmt',''),r.get('nguon_cap0',''),_money(r.get('so_tien')),
                  _money(r.get('so_tien')),r.get('so_lo','')]
             for j,v in enumerate(val):
-                if j==0: a,b=cols[0],cols[1]
-                elif j==1: a,b=cols[1],cols[2]
-                elif j==2: a,b=cols[2],cols[3]
-                elif j==3: a,b=cols[3],cols[4]
-                else: a,b=cols[j],cols[j+1]
-                _write(page,(a+1,y,b-1,y+line_h-5),v,font,7 if j!=1 else 6,2 if j in (12,13) else 1 if j>1 else 0)
-            # Cột TKKT trên mẫu: hiển thị cả hai tài khoản Nợ/Có khi khác nhau.
-            if str(r.get('tk_co','')).strip() and str(r.get('tk_co','')).strip()!=str(r.get('tk_no','')).strip():
-                _write(page,(344,y+10,375,y+19),r.get('tk_co',''),font,5,1)
+                a,b=cols[j],cols[j+1]
+                if j == 5:  # TKKT: Nợ / Có, two separate lines within one cell.
+                    tk_no = str(r.get('tk_no','') or '').strip()
+                    tk_co = str(r.get('tk_co','') or '').strip()
+                    if tk_co and tk_co != tk_no:
+                        _c602_cell(page,(a+1,y-2,b-1,y+7),tk_no,font,5.5,1)
+                        _c602_cell(page,(a+1,y+7,b-1,y+17),tk_co,font,5.5,1)
+                    else:
+                        _c602_cell(page,(a+1,y,b-1,y+line_h-5),tk_no,font,7,1)
+                    continue
+                _c602_cell(page,(a+1,y,b-1,y+line_h-5),v,font,
+                           7 if j not in (1,3) else 6.5 if j==3 else 6,
+                           2 if j in (12,13) else 1 if j>1 else 0)
         sig_y=min(bottom+24,490)
         _write(page,(570,sig_y-22,803,sig_y),'Ngày ... tháng ... năm ...',font,8,1)
         for a,b,label in [(80,245,'Người nhập'),(320,505,'Kiểm soát'),(570,803,'Thủ trưởng đơn vị')]:
