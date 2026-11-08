@@ -11,7 +11,7 @@ FORM_NAMES = {
  'PL47':'Phu luc mau 47 (bang doi chieu)',
  'PL48':'Phu luc mau 48 (bang doi chieu)',
 }
-COLUMNS=[('don_vi','Don vi nhan'),('qhns','Ma DVQHNS'),('chuong','Chuong'),('loai','Loai'),('khoan','Khoan'),('nguon_cap0','Nguon cap 0'),('nguon','Nguon chi tiet cap 4'),('noi_dung','Noi dung'),('ma_loai_du_toan','Ma loai du toan'),('tk_no','TK No'),('tk_co','TK Co'),('nguon_goc','Nguon goc du toan'),('so_tien','So tien (VND)')]
+COLUMNS=[('don_vi','Don vi nhan'),('qhns','Ma DVQHNS'),('chuong','Chuong'),('loai','Loai'),('khoan','Khoan'),('nguon_cap0','Nguon cap 0'),('nguon','Nguon chi tiet cap 4'),('noi_dung','Diễn giải nghiệp vụ / Nội dung dự toán'),('ma_loai_du_toan','Ma loai du toan'),('tk_no','TK No'),('tk_co','TK Co'),('nguon_goc','Nguon goc du toan'),('so_tien','So tien (VND)')]
 
 def export_selected(folder, commune, year, decision, decision_date, rows, selected):
     """Generate non-official review sheets. Never mark them as statutory forms."""
@@ -41,7 +41,7 @@ def export_selected(folder, commune, year, decision, decision_date, rows, select
         ws.write(end,last_col-1,'TONG CONG',head)
         letter=xlsxwriter.utility.xl_col_to_name(last_col)
         ws.write_formula(end,last_col,f'=SUM({letter}9:{letter}{end})',money,total)
-        ws.set_column(0,1,19);ws.set_column(2,5,12);ws.set_column(6,6,50);ws.set_column(7,last_col-1,20);ws.set_column(last_col,last_col,22)
+        ws.set_column(0,1,19);ws.set_column(2,5,12);ws.set_column(6,6,18);ws.set_column(7,7,65);ws.set_column(8,last_col-1,20);ws.set_column(last_col,last_col,22)
         ws.freeze_panes(8,0);ws.autofilter(7,0,end-1,last_col)
         ws.fit_to_pages(1,0);ws.set_landscape();ws.repeat_rows(7)
         wb.close();paths.append(path)

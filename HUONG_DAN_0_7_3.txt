@@ -1,0 +1,1 @@
+0.7.3 - Đưa diễn giải từ tab Nhập nghiệp vụ vào nội dung của từng dòng phiếu nhập, điều chỉnh và phụ lục quyết định dự thảo. Bảng cấp 0 giữ diễn giải theo từng nghiệp vụ thay vì gộp mất diễn giải. Chưa điền mẫu C6 gốc.

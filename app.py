@@ -91,7 +91,7 @@ BUDGET_CATALOG = BudgetCatalog()
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.7.1')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.7.2')
         self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
@@ -202,6 +202,12 @@ class App(tk.Tk):
         ttk.Button(win,text='Lưu xã/phường',command=save).grid(row=5,column=1,sticky='e',padx=12,pady=10)
 
     def make_entry(self):
+        # Nút thao tác quan trọng luôn ở đầu tab, không bị đẩy ra ngoài màn hình.
+        quick=ttk.Frame(self.tab_entry)
+        quick.pack(fill='x',pady=(0,8))
+        ttk.Button(quick,text='➕ ĐƯA NGHIỆP VỤ VÀO PHIẾU / QĐ',command=self.add_entry_to_package).pack(side='left',padx=(0,8))
+        ttk.Button(quick,text='Xem bộ phiếu / Quyết định',command=self.open_package).pack(side='left',padx=(0,8))
+        ttk.Button(quick,text='Xem trước nghiệp vụ',command=self.preview_current_entry).pack(side='left')
         main=ttk.Frame(self.tab_entry);main.pack(fill='both',expand=True)
         left=ttk.Frame(main);left.pack(side='left',fill='both',expand=True)
         self.vars={k:tk.StringVar() for k in FIELDS}
@@ -500,6 +506,7 @@ class App(tk.Tk):
         entry.bind('<Return>',lambda e:self.search_catalog())
         ttk.Button(bar,text='Tra cứu / Gợi ý',command=self.search_catalog).pack(side='left')
         ttk.Button(bar,text='Xem tất cả',command=lambda:(self.catalog_search.set(''),self.search_catalog())).pack(side='left',padx=5)
+        ttk.Button(bar,text='➕ ĐƯA MÃ NGÀNH VÀO NGHIỆP VỤ',command=self.apply_sector).pack(side='left',padx=8)
         cols=('loai','khoan','name','match')
         self.catalog_tree=ttk.Treeview(self.tab_catalog,columns=cols,show='headings',height=15)
         for key,title,width in [('loai','Mã Loại',95),('khoan','Mã Khoản',95),('name','Tên ngành / lĩnh vực',510),('match','Từ khóa khớp',210)]:
@@ -995,7 +1002,7 @@ class App(tk.Tk):
             values=[f'{k} — {v}' for k,v in FORM_NAMES.items()]);cb.pack(side='left',padx=8)
         cb.set('C601 — '+FORM_NAMES['C601'])
         columns=('stt','noi_dung','ma_loai_du_toan','nguon','chuong','loai','khoan','tk_no','tk_co','so_tien')
-        names=('STT','Diễn giải','Loại DT','Nguồn','Chương','Loại','Khoản','TK Nợ','TK Có','Số tiền')
+        names=('STT','Diễn giải nghiệp vụ / Nội dung phiếu','Loại DT','Nguồn','Chương','Loại','Khoản','TK Nợ','TK Có','Số tiền')
         table_frame=ttk.Frame(win);table_frame.pack(fill='both',expand=True,padx=14,pady=6)
         tree=ttk.Treeview(table_frame,columns=columns,show='headings',height=15)
         for key,label in zip(columns,names):
