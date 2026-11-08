@@ -1,0 +1,13 @@
+CAP NHAT 0.8.6 - NGAY 08/11/2026
+
+Nguon ZIP nguoi dung gui van co app.py 0.8.1, installer.iss 0.8.1-beta, va workflow KHONG dong goi templates_pdf.
+
+Da sua:
+- app.py: thanh tieu de 0.8.6
+- installer.iss: AppVersion 0.8.6-beta
+- .github/workflows/build-windows-setup.yml: dong goi templates_pdf, templates va 3 CSV; kiem tra tep truoc build
+- TAO_SETUP_TREN_WINDOWS.bat: dong goi cung cac tai nguyen
+
+CACH LAM: Sao luu du lieu; giai nen ZIP; upload CA THU MUC .github (thu muc an) va cac tep len GitHub main; kiem tra GitHub hien AppVersion 0.8.6-beta; Actions -> chay build moi; tai artifact cua lan moi nhat; cai dat.
+
+CHUA KIEM THU EXE/SETUP tren Windows. Bo cai van tieng Anh: chua them goi dich Vietnamese.isl de tranh loi build.
