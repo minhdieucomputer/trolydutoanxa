@@ -854,14 +854,43 @@ class App(tk.Tk):
     def make_batch(self):
         from batch_export import FIELDS as BATCH_FIELDS
         self.batch_rows=[]
-        ttk.Label(self.tab_batch,text='LẬP ĐỒNG THỜI C6-02 CẤP 0, C6-01 CẤP 4 VÀ PHỤ LỤC QUYẾT ĐỊNH',font=('Segoe UI',12,'bold')).pack(anchor='w')
-        ttk.Label(self.tab_batch,text='Dữ liệu từ tab Nghiệp vụ được chuyển tự động khi bấm Đưa vào phiếu. Nguồn cấp 0 và nguồn chi tiết cấp 4 là hai trường độc lập.\nBản thử nghiệm: xuất 3 BẢNG CHUẨN BỊ Excel, chưa phải mẫu chứng từ KBNN chính thức. Mỗi dòng có thể khác Loại, Khoản, nguồn và đơn vị nhận.',foreground='#92430d',wraplength=1020).pack(anchor='w',pady=6)
-        meta=ttk.Frame(self.tab_batch);meta.pack(fill='x',pady=5)
+        # Chia khu vực nhập và bảng dữ liệu thành hai ngăn độc lập.
+        # Phần nhập có thanh cuộn, bảng ở ngăn dưới luôn được cấp không gian hiển thị.
+        splitter=ttk.Panedwindow(self.tab_batch,orient='vertical')
+        splitter.pack(fill='both',expand=True)
+        upper_shell=ttk.Frame(splitter)
+        lower_shell=ttk.Frame(splitter)
+        splitter.add(upper_shell,weight=3)
+        splitter.add(lower_shell,weight=2)
+        upper_canvas=tk.Canvas(upper_shell,highlightthickness=0,borderwidth=0)
+        upper_scroll=ttk.Scrollbar(upper_shell,orient='vertical',command=upper_canvas.yview)
+        upper_canvas.configure(yscrollcommand=upper_scroll.set)
+        upper_scroll.pack(side='right',fill='y')
+        upper_canvas.pack(side='left',fill='both',expand=True)
+        upper=ttk.Frame(upper_canvas,padding=(3,3,8,3))
+        canvas_window=upper_canvas.create_window((0,0),window=upper,anchor='nw')
+        upper.bind('<Configure>',lambda event:upper_canvas.configure(scrollregion=upper_canvas.bbox('all')))
+        upper_canvas.bind('<Configure>',lambda event:upper_canvas.itemconfigure(canvas_window,width=event.width))
+        # Khởi tạo chiều cao hai ngăn khi giao diện đã tính xong kích thước.
+        def set_initial_split():
+            if not splitter.winfo_exists():return
+            h=splitter.winfo_height()
+            if h>200:
+                try:splitter.sashpos(0,max(170,min(int(h*.56),h-170)))
+                except tk.TclError:pass
+        self.after(350,set_initial_split)
+        ttk.Label(lower_shell,text='DANH SÁCH NGHIỆP VỤ ĐÃ ĐƯA VÀO PHIẾU – Chọn hoặc nháy đúp để sửa',
+                  font=('Segoe UI',10,'bold')).pack(anchor='w',pady=(3,4))
+        table_shell=ttk.Frame(lower_shell)
+        table_shell.pack(fill='both',expand=True)
+        ttk.Label(upper,text='LẬP ĐỒNG THỜI C6-02 CẤP 0, C6-01 CẤP 4 VÀ PHỤ LỤC QUYẾT ĐỊNH',font=('Segoe UI',12,'bold')).pack(anchor='w')
+        ttk.Label(upper,text='Dữ liệu từ tab Nghiệp vụ được chuyển tự động khi bấm Đưa vào phiếu. Nguồn cấp 0 và nguồn chi tiết cấp 4 là hai trường độc lập.\nBản thử nghiệm: xuất 3 BẢNG CHUẨN BỊ Excel, chưa phải mẫu chứng từ KBNN chính thức. Mỗi dòng có thể khác Loại, Khoản, nguồn và đơn vị nhận.',foreground='#92430d',wraplength=1020).pack(anchor='w',pady=6)
+        meta=ttk.Frame(upper);meta.pack(fill='x',pady=5)
         self.batch_meta={k:tk.StringVar(value=v) for k,v in [('year',str(datetime.now().year)),('decision',''),('decision_date',datetime.now().strftime('%Y-%m-%d'))]}
         for k,title in [('year','Năm ngân sách'),('decision','Số quyết định'),('decision_date','Ngày quyết định')]:
             ttk.Label(meta,text=title).pack(side='left',padx=(8,3));ttk.Entry(meta,textvariable=self.batch_meta[k],width=17).pack(side='left')
         # Thông tin quyết định được nhập duy nhất ở tab Bộ phiếu / Quyết định.
-        decision=ttk.LabelFrame(self.tab_batch,text='THÔNG TIN QUYẾT ĐỊNH GIAO DỰ TOÁN',padding=8)
+        decision=ttk.LabelFrame(upper,text='THÔNG TIN QUYẾT ĐỊNH GIAO DỰ TOÁN',padding=8)
         decision.pack(fill='x',pady=5)
         self.decision_vars={k:tk.StringVar(value=v) for k,v in [
             ('agency',''),('subject','Về việc giao dự toán ngân sách'),
@@ -880,14 +909,14 @@ class App(tk.Tk):
                    command=self.preview_decision).pack(side='left',padx=(0,8))
         ttk.Button(decision_actions,text='IN QUYẾT ĐỊNH / PHỤ LỤC',
                    command=lambda:self.preview_decision(print_now=True)).pack(side='left')
-        reconcile=ttk.LabelFrame(self.tab_batch,text='ĐỐI CHIẾU TỔNG TIỀN QUYẾT ĐỊNH VỚI CÁC DÒNG MÃ NGÀNH',padding=8)
+        reconcile=ttk.LabelFrame(upper,text='ĐỐI CHIẾU TỔNG TIỀN QUYẾT ĐỊNH VỚI CÁC DÒNG MÃ NGÀNH',padding=8)
         reconcile.pack(fill='x',pady=5)
         ttk.Label(reconcile,text='Tổng số tiền quyết định giao dự toán (VND):').pack(side='left')
         ttk.Entry(reconcile,textvariable=self.decision_total,width=22).pack(side='left',padx=8)
         self.reconcile_text=tk.StringVar(value='Chưa nhập tổng số tiền quyết định.')
         self.reconcile_label=tk.Label(reconcile,textvariable=self.reconcile_text,fg='#a11919',font=('Segoe UI',10,'bold'))
         self.reconcile_label.pack(side='left',padx=12)
-        form=ttk.LabelFrame(self.tab_batch,text='Thêm dòng dự toán',padding=8);form.pack(fill='x',pady=6)
+        form=ttk.LabelFrame(upper,text='Thêm dòng dự toán',padding=8);form.pack(fill='x',pady=6)
         self.batch_vars={k:tk.StringVar() for k in BATCH_FIELDS}
         self.batch_vars['ma_loai_du_toan']=tk.StringVar()
         self.batch_vars['tk_no']=tk.StringVar()
@@ -902,7 +931,7 @@ class App(tk.Tk):
             widget=(ttk.Combobox(form,textvariable=self.batch_vars[k],width=19,values=source_display_values()) if k in ('nguon','nguon_cap0') else ttk.Entry(form,textvariable=self.batch_vars[k],width=21))
             widget.grid(row=r,column=c+1,sticky='ew',padx=4,pady=5)
             if k=='noi_dung':self.batch_first_widget=widget
-        bar=ttk.Frame(self.tab_batch);bar.pack(fill='x',pady=5)
+        bar=ttk.Frame(upper);bar.pack(fill='x',pady=5)
         ttk.Button(bar,text='Thêm dòng mới',command=self.batch_add).pack(side='left')
         ttk.Button(bar,text='LƯU THAY ĐỔI DÒNG',command=self.batch_update_selected).pack(side='left',padx=6)
         ttk.Button(bar,text='XÓA DÒNG',command=self.batch_remove).pack(side='left',padx=6)
@@ -912,16 +941,24 @@ class App(tk.Tk):
         ttk.Button(bar,text='Sửa nghiệp vụ đã chọn',command=self.batch_edit_selected).pack(side='left',padx=6)
         ttk.Button(bar,text='Thêm từ màn hình Nghiệp vụ',command=self.add_entry_to_package).pack(side='left',padx=6)
         cols=tuple([*BATCH_FIELDS,'nguon_cap0','qhns_cap0','ma_loai_du_toan','tk_no','tk_co'])
-        self.batch_tree=ttk.Treeview(self.tab_batch,columns=cols,show='headings',height=12)
+        self.batch_tree=ttk.Treeview(table_shell,columns=cols,show='headings',height=8,
+                                     selectmode='extended')
         for k in cols:
             self.batch_tree.heading(k,text=labels[k]);self.batch_tree.column(k,width=180 if k in ('noi_dung','don_vi') else 95)
-        self.batch_tree.pack(fill='both',expand=True,pady=8)
+        ybar=ttk.Scrollbar(table_shell,orient='vertical',command=self.batch_tree.yview)
+        xbar=ttk.Scrollbar(table_shell,orient='horizontal',command=self.batch_tree.xview)
+        self.batch_tree.configure(yscrollcommand=ybar.set,xscrollcommand=xbar.set)
+        table_shell.columnconfigure(0,weight=1)
+        table_shell.rowconfigure(0,weight=1)
+        self.batch_tree.grid(row=0,column=0,sticky='nsew')
+        ybar.grid(row=0,column=1,sticky='ns')
+        xbar.grid(row=1,column=0,sticky='ew')
         self.batch_edit_status=tk.StringVar(value='Chọn hoặc nháy đúp một dòng để đưa dữ liệu lên ô nhập phía trên; sửa xong nhấn LƯU THAY ĐỔI DÒNG.')
-        ttk.Label(self.tab_batch,textvariable=self.batch_edit_status,foreground='#165a89',wraplength=1020).pack(anchor='w')
+        ttk.Label(lower_shell,textvariable=self.batch_edit_status,foreground='#165a89',wraplength=1020).pack(anchor='w')
         self.batch_tree.bind('<<TreeviewSelect>>',self.batch_select_row)
         self.batch_tree.bind('<Double-1>',self.batch_double_click)
         self.batch_total=tk.StringVar(value='0 dòng | Tổng: 0 VND')
-        ttk.Label(self.tab_batch,textvariable=self.batch_total,font=('Segoe UI',11,'bold')).pack(anchor='e')
+        ttk.Label(lower_shell,textvariable=self.batch_total,font=('Segoe UI',11,'bold')).pack(anchor='e')
         self.update_package_reconciliation()
 
     @staticmethod

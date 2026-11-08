@@ -1,0 +1,22 @@
+TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ - SỬA HIỂN THỊ BẢNG DỮ LIỆU (0.8.5)
+
+NGUYÊN NHÂN:
+Trong mã nguồn được gửi, bảng dữ liệu Treeview vẫn có nhưng bị đẩy xuống dưới do các phần nhập thông tin quyết định và nhập nghiệp vụ quá cao. Cửa sổ Tkinter không tự cuộn toàn bộ tab nên bảng có thể không nhìn thấy.
+
+ĐÃ SỬA:
+1. Chia tab Bộ 3 chứng từ / Phụ lục QĐ thành hai ngăn trên/dưới bằng thanh chia kéo được.
+2. Ngăn trên: các ô quyết định, nghiệp vụ và nút chức năng, có thanh cuộn dọc riêng.
+3. Ngăn dưới: bảng dữ liệu luôn có không gian hiển thị, có thanh cuộn dọc và ngang.
+4. Giữ chọn/nháy đúp dòng để đưa dữ liệu lên ô nhập, lưu thay đổi, xóa dòng và xem trước biểu mẫu.
+
+CÁCH SỬ DỤNG:
+- Mở tab Bộ 3 chứng từ / Phụ lục QĐ.
+- Kéo thanh chia giữa hai ngăn để tăng chiều cao bảng khi cần.
+- Nhấn chọn hoặc nháy đúp dòng bên dưới; cuộn ngăn trên để sửa các ô.
+- Nhấn LƯU THAY ĐỔI DÒNG để cập nhật; hoặc XÓA DÒNG để xóa.
+- XEM TRƯỚC PHIẾU / QUYẾT ĐỊNH tiếp tục chọn mẫu như phiên bản hiện tại.
+
+CẬP NHẬT GITHUB:
+Giải nén ZIP, đưa mã nguồn lên repository thay các file cũ, chạy lại workflow Build Windows installer và cài bản Setup mới.
+
+LƯU Ý: Đã kiểm tra cú pháp Python; chưa kiểm thử giao diện trên Windows. Phiên bản 0.8.5 là nhãn tài liệu sửa giao diện, không thay đổi các quy tắc nghiệp vụ.
