@@ -1,0 +1,1 @@
+0.7.4: Bắt buộc diễn giải, mã loại dự toán, TK Nợ/Có khi thêm/sửa/xuất; xem trước có nút sửa dòng và nháy đúp; xuất Excel cấp 0/cấp 4/phụ lục có mã loại dự toán, TK Nợ/Có. Chưa phải mẫu C6 chính thức.

@@ -1,0 +1,9 @@
+PHIÊN BẢN 0.7.7 - DỰ THẢO QUYẾT ĐỊNH
+- Tab Nghiệp vụ: ẩn trường Tiểu mục; dữ liệu cũ vẫn được giữ trong cơ sở dữ liệu.
+- Tab Bộ 3 chứng từ / Phụ lục QĐ: bổ sung tên UBND, trích yếu, nguồn kinh phí, nội dung quyết định.
+- Nhập số/ngày quyết định và tổng tiền trong tab này; xem trước quyết định + phụ lục dạng PDF có số liệu.
+- PDF quyết định là DỰ THẢO tham khảo, không sao chép biểu mẫu quyết định riêng của từng địa phương.
+- Chức năng xem trước C6-01/C6-04 trên mẫu gốc từ phiên bản trước giữ nguyên.
+- Chưa tích hợp điền ô mẫu C6-02 gốc.
+- Chưa lưu metadata quyết định vào SQLite; thông tin tồn tại trong phiên làm việc.
+- Kiểm tra và đối chiếu mã nguồn, mã hạch toán trước khi sử dụng chính thức.

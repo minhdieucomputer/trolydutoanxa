@@ -54,3 +54,24 @@ Tải toàn bộ mã nguồn lên GitHub (bao gồm thư mục templates và .gi
 - Xem trước danh sách nghiệp vụ tổng hợp, tổng tiền, tô hồng dòng thiếu mã.
 - Sửa dòng đã chọn trước khi xuất, chọn mẫu C6/Mẫu C/47/48 trong cửa sổ xuất.
 - Xem trước là **bảng dữ liệu dự thảo**, không phải bản xem trước bố cục mẫu chứng từ chính thức.
+
+### Xem trước như in (0.7.5)
+Trong cửa sổ Xem trước bộ phiếu, chọn mẫu và nhấn **XEM TRƯỚC NHƯ IN (PDF)** để mở bản PDF khổ A4 ngang với nội dung diễn giải, mã loại dự toán, TK Nợ/Có, mã ngành, mã nguồn, QHNS, số tiền và đối chiếu tổng quyết định. Nháy đúp dòng trong bảng xem trước để sửa và lưu, rồi mở lại PDF để xem dữ liệu mới. Đây là **bản in dự thảo để rà soát**, không phải biểu mẫu C6 chính thức được ánh xạ từ DOC/XLS gốc.
+
+
+## Bản 0.7.7
+Thông tin UBND, số quyết định, nguồn kinh phí và bản xem trước quyết định/phụ lục PDF dự thảo. Ẩn Tiểu mục trên tab nghiệp vụ. Xem HUONG_DAN_0_7_7.txt.
+
+### Phiên bản 0.7.8 – Nút IN trong xem trước
+- Cửa sổ Xem trước bộ phiếu có nút **IN PHIẾU ĐÃ CHỌN**, dùng mẫu PDF được chọn.
+- Tab Bộ phiếu/Quyết định có nút **IN QUYẾT ĐỊNH / PHỤ LỤC**.
+- Trên Windows, xác nhận trước khi gửi tới máy in mặc định; chọn Không sẽ mở PDF để tự chọn máy in bằng Ctrl+P.
+- Nếu Windows không có ứng dụng PDF hỗ trợ lệnh in, chương trình mở PDF để in thủ công.
+
+
+## Phiên bản 0.7.9 – Xem trước đúng trang phiếu
+Nút Xem trước bộ phiếu/QĐ mở trực tiếp PDF C6-01 hoặc C6-04 có nền biểu mẫu gốc, thay vì mở bảng dữ liệu. Chọn Sửa dữ liệu các dòng để chỉnh sửa riêng. Chỉ C6-01/C6-04 hiện có PDF nền và ánh xạ; C6-02/C6-03 chưa hỗ trợ xem trước như in.
+
+
+### 0.8.2
+C6-02 cấp 0 xem trước trên mẫu gốc có dữ liệu tự động, theo HUONG_DAN_0_8_2.txt.

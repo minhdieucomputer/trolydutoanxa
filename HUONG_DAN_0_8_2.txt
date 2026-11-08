@@ -1,0 +1,10 @@
+TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ – 0.8.2
+
+MỚI: XEM TRƯỚC C6-02 CẤP 0 CÓ DỮ LIỆU
+1. Nhập các nghiệp vụ, bấm Đưa vào phiếu / QĐ.
+2. Ở tab Bộ 3 chứng từ / Phụ lục QĐ, nhập số/ngày quyết định, tổng số tiền.
+3. Chọn XEM TRƯỚC PHIẾU / QUYẾT ĐỊNH > C6-02 > XEM TRƯỚC MẪU ĐÃ CHỌN.
+4. PDF hiển thị nền mẫu C6-02 gốc với số liệu các dòng cấp 0: nội dung, số/ngày quyết định, mã loại dự toán, TKKT, cấp NS, mã tổ chức NS cấp 0, chương, khoản, nguồn cấp 0, số tiền.
+5. Có thể Ctrl+P trong trình xem PDF để in.
+
+LƯU Ý: C6-02 hiện được điền lên nền mẫu PDF chuyển từ file Excel gốc, với phần thân bảng được mở rộng để chứa nhiều nghiệp vụ. Cần đối chiếu bản in thực tế, đặc biệt cột Nợ/Có, TKKT và cách nhóm khoản chi, trước khi dùng làm chứng từ chính thức. C6-03 chưa tự điền.

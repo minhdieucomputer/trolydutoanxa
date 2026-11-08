@@ -18,7 +18,7 @@ def check_rows(rows):
 def summarize(rows):
     groups=defaultdict(int)
     for r in rows:
-        groups[(r['loai'],r.get('nguon_cap0',''),r.get('qhns_cap0',''),r['noi_dung'])]+=int(r['so_tien'])
+        groups[(r['loai'],r.get('nguon_cap0',''),r.get('qhns_cap0',''),r['noi_dung'],r.get('ma_loai_du_toan',''),r.get('tk_no',''),r.get('tk_co',''))]+=int(r['so_tien'])
     return groups
 
 def export_package(folder, commune, year, decision, decision_date, rows):
@@ -55,16 +55,16 @@ def export_package(folder, commune, year, decision, decision_date, rows):
         ws.fit_to_pages(1,0);ws.set_landscape()
         wb.close()
         return path
-    c0=[(description,loai,nguon,org,amount) for (loai,nguon,org,description),amount in sorted(groups.items())]
+    c0=[(description,loai,nguon,org,dt,debit,credit,amount) for (loai,nguon,org,description,dt,debit,credit),amount in sorted(groups.items())]
     # Cấp 0 chỉ tổng hợp theo loại và nguồn. Tài khoản/COA phải được cán bộ đối chiếu.
     p0=make('01_C6-02_cap_0_DU_THAO.xlsx','BẢNG CHUẨN BỊ PHIẾU C6-02/NS — CẤP 0',
-        ['Diễn giải nghiệp vụ','Mã Loại (lĩnh vực)','Mã nguồn cấp 0 (cần xác nhận)','Mã tổ chức ngân sách cấp 0','Số tiền (VND)'],c0,
+        ['Diễn giải nghiệp vụ','Mã Loại (lĩnh vực)','Mã nguồn cấp 0 (cần xác nhận)','Mã tổ chức ngân sách cấp 0','Mã loại dự toán','TK Nợ','TK Có','Số tiền (VND)'],c0,
         'BẢN DỰ THẢO — Mã 99 là giá trị mặc định người dùng yêu cầu, KHÔNG đồng nghĩa đã xác minh mã nguồn cấp 0. Kiểm tra nguồn cấp 0 độc lập với cấp 4; chưa xác định TK Nợ/Có và COA.')
-    detail=[(r['noi_dung'],r['loai'],r['khoan'],r['nguon'],r['chuong'],r['don_vi'],r['qhns'],int(r['so_tien'])) for r in rows]
+    detail=[(r['noi_dung'],r['loai'],r['khoan'],r['nguon'],r['chuong'],r['don_vi'],r['qhns'],r.get('ma_loai_du_toan',''),r.get('tk_no',''),r.get('tk_co',''),int(r['so_tien'])) for r in rows]
     p4=make('02_C6-01_phan_bo_cap_4_DU_THAO.xlsx','BẢNG CHUẨN BỊ PHIẾU C6-01 — PHÂN BỔ CẤP 4',
-        ['Diễn giải nghiệp vụ','Mã Loại','Mã Khoản','Mã nguồn chi tiết cấp 4','Mã Chương','Đơn vị nhận','Mã ĐVQHNS','Số tiền (VND)'],detail,
+        ['Diễn giải nghiệp vụ','Mã Loại','Mã Khoản','Mã nguồn chi tiết cấp 4','Mã Chương','Đơn vị nhận','Mã ĐVQHNS','Mã loại dự toán','TK Nợ','TK Có','Số tiền (VND)'],detail,
         'BẢN DỰ THẢO — Mã nguồn 99 là giá trị mặc định, cần kiểm tra mã nguồn chi tiết cấp 4 theo nghiệp vụ. KHÔNG PHẢI PHIẾU GỬI KBNN.')
     annex=make('03_Phu_luc_quyet_dinh_DU_THAO.xlsx','PHỤ LỤC KÈM QUYẾT ĐỊNH GIAO DỰ TOÁN',
-        ['Diễn giải nghiệp vụ / Nội dung nhiệm vụ','Mã Loại','Mã Khoản','Mã nguồn chi tiết cấp 4','Mã Chương','Đơn vị nhận','Mã ĐVQHNS','Số tiền (VND)'],detail,
+        ['Diễn giải nghiệp vụ / Nội dung nhiệm vụ','Mã Loại','Mã Khoản','Mã nguồn chi tiết cấp 4','Mã Chương','Đơn vị nhận','Mã ĐVQHNS','Mã loại dự toán','TK Nợ','TK Có','Số tiền (VND)'],detail,
         'DỰ THẢO PHỤ LỤC — Mã nguồn 99 chỉ là mặc định nhập liệu. Cần đối chiếu mã nguồn chi tiết, quyết định, niên độ và phê duyệt.')
     return [p0,p4,annex],total

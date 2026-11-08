@@ -1,0 +1,12 @@
+TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ – 0.8.1
+
+1. Vào tab Bộ 3 chứng từ / Phụ lục QĐ.
+2. Nhấn XEM TRƯỚC PHIẾU / QUYẾT ĐỊNH.
+3. Chọn một mẫu: C6-01, C6-02, C6-03, C6-04 hoặc Quyết định và phụ lục.
+4. Nhấn XEM TRƯỚC MẪU ĐÃ CHỌN để mở PDF.
+5. C6-01/C6-04: xem trên nền mẫu gốc với dữ liệu đang có; cần kiểm tra vị trí ô.
+6. Quyết định: bản dự thảo có dữ liệu, không phải quyết định đã ban hành.
+7. C6-02/C6-03: CHỈ MẪU GỐC THAM KHẢO, chưa điền dữ liệu tự động.
+8. In từ trình xem PDF bằng Ctrl+P.
+
+Đã kiểm tra cú pháp Python và mở tạo PDF mẫu tham khảo. Chưa kiểm thử trên Windows.

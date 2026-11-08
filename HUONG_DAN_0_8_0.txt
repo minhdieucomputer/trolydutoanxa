@@ -1,0 +1,11 @@
+HƯỚNG DẪN PHIÊN BẢN 0.8.0 – XEM TRƯỚC C6 NHƯ IN
+
+1. Vào tab Bộ 3 chứng từ / Phụ lục QĐ, thêm các dòng nghiệp vụ.
+2. Nhấn XEM TRƯỚC C6-01 hoặc XEM TRƯỚC C6-04.
+3. Phần mềm tạo và mở trực tiếp PDF trên nền mẫu C6 gốc; không mở bảng dữ liệu trung gian.
+4. In bằng Ctrl+P trong trình đọc PDF.
+5. Sửa dữ liệu: chọn dòng trong bảng của tab Bộ 3 chứng từ, sửa ô phía trên rồi nhấn LƯU THAY ĐỔI DÒNG; xem trước lại.
+6. Đã bỏ nút Tạo phiếu và quyết định từ toàn bộ nghiệp vụ.
+7. Khi build GitHub, thư mục templates_pdf bắt buộc có đủ hai mẫu PDF gốc.
+
+LƯU Ý: Vị trí ánh xạ các ô trên C6-01/C6-04 cần đối chiếu bản in thực tế. Chưa hỗ trợ xem trước mẫu gốc C6-02/C6-03.
