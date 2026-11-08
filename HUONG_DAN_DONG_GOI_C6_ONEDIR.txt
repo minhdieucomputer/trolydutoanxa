@@ -1,0 +1,12 @@
+HUONG DAN CAP NHAT BO CAI C6 (ONEDIR)
+
+1. Sao luu du lieu trong ung dung cu.
+2. Giai nen ZIP, tai TOAN BO file len repository GitHub, bao gom .github/workflows/build-windows-setup.yml.
+3. Xac nhan GitHub hien: workflow co --onedir, installer.iss co recursesubdirs.
+4. Actions -> Build Windows installer -> Run workflow, chon nhanh main.
+5. Trong log, tim dong DA XAC NHAN DU 4 MAU C6. Neu khong co, ban dang build workflow cu.
+6. Tai artifact cua lan build moi nhat, giai nen va chay Setup.exe.
+7. Mo ung dung va xem truoc C6-01.
+
+Luu y: Inno Setup van tao 1 file Setup.exe duy nhat, nhung khi cai se tao thu muc chuong trinh gom EXE va tai nguyen PDF.
+Chua kiem thu tren Windows/GitHub Actions.

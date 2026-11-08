@@ -10,8 +10,20 @@ TITLES={'C601':'C6-01 - Phiếu nhập dự toán','C604':'C6-04 - Phiếu đi�
 FILES={'C601':'C6-01_original.pdf','C604':'C6-04_original.pdf'}
 
 def _asset(name):
-    root=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent))
-    return root/'templates_pdf'/name
+    # PyInstaller onedir: bundled data lives in _internal/templates_pdf.
+    # Also support data placed next to the installed EXE or running from source.
+    candidates = []
+    if getattr(sys, 'frozen', False):
+        if getattr(sys, '_MEIPASS', None):
+            candidates.append(Path(sys._MEIPASS))
+        candidates.append(Path(sys.executable).resolve().parent)
+    candidates.append(Path(__file__).resolve().parent)
+    for root in candidates:
+        candidate = root / 'templates_pdf' / name
+        if candidate.is_file():
+            return candidate
+    locations = ', '.join(str(root / 'templates_pdf' / name) for root in candidates)
+    raise FileNotFoundError('Không tìm thấy mẫu C6 ' + name + '. Đã kiểm tra: ' + locations)
 
 def _font(page):
     for path in (Path('C:/Windows/Fonts/arial.ttf'),Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')):
