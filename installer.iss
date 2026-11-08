@@ -1,3 +1,6 @@
+﻿#ifndef MyBuildDir
+  #define MyBuildDir "dist\TroLyDuToanXa"
+#endif
 #define MyAppName "Trợ lý dự toán ngân sách xã"
 #define MyAppVersion "0.8.6-beta"
 #define MyAppExeName "TroLyDuToanXa.exe"
@@ -16,7 +19,7 @@ ArchitecturesAllowed=x64compatible
 WizardStyle=modern
 UninstallDisplayIcon={app}\{#MyAppExeName}
 [Files]
-Source: "dist\TroLyDuToanXa\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#MyBuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
