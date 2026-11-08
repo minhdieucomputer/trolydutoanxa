@@ -1,0 +1,1 @@
+0.6.8: Tổng tiền quyết định chuyển sang tab Bộ phiếu/QĐ. Mã tổ chức NS cấp 0 lấy từ hồ sơ xã; mã QHNS cấp 4 nhập theo đơn vị nhận, không tự suy diễn. Chọn dòng bảng để đưa dữ liệu lên các ô; Lưu sửa dòng đã chọn hoặc nháy đúp để mở cửa sổ sửa. Cảnh báo thiếu mã QHNS trước khi xuất bảng dự thảo.

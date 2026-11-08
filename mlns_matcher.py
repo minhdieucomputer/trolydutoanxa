@@ -14,6 +14,7 @@ SYNONYMS = {
  '073':['trung hoc co so','thcs'],
  '074':['trung hoc pho thong','thpt'],
  '075':['giao duc thuong xuyen','giao duc nghe nghiep'],
+ '351':['dang cong san','dang cong san viet nam','hoat dong cua dang'],
  '131':['y te du phong'],
  '132':['kham benh','chua benh','kham chua benh'],
 }

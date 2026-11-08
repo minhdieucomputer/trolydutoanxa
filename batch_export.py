@@ -18,7 +18,7 @@ def check_rows(rows):
 def summarize(rows):
     groups=defaultdict(int)
     for r in rows:
-        groups[(r['loai'],r.get('nguon_cap0',''))]+=int(r['so_tien'])
+        groups[(r['loai'],r.get('nguon_cap0',''),r.get('qhns_cap0',''))]+=int(r['so_tien'])
     return groups
 
 def export_package(folder, commune, year, decision, decision_date, rows):
@@ -55,10 +55,10 @@ def export_package(folder, commune, year, decision, decision_date, rows):
         ws.fit_to_pages(1,0);ws.set_landscape()
         wb.close()
         return path
-    c0=[(loai,nguon,amount) for (loai,nguon),amount in sorted(groups.items())]
+    c0=[(loai,nguon,org,amount) for (loai,nguon,org),amount in sorted(groups.items())]
     # Cấp 0 chỉ tổng hợp theo loại và nguồn. Tài khoản/COA phải được cán bộ đối chiếu.
     p0=make('01_C6-02_cap_0_DU_THAO.xlsx','BẢNG CHUẨN BỊ PHIẾU C6-02/NS — CẤP 0',
-        ['Mã Loại (lĩnh vực)','Mã nguồn cấp 0 (cần xác nhận)','Số tiền (VND)'],c0,
+        ['Mã Loại (lĩnh vực)','Mã nguồn cấp 0 (cần xác nhận)','Mã tổ chức ngân sách cấp 0','Số tiền (VND)'],c0,
         'BẢN DỰ THẢO — Mã 99 là giá trị mặc định người dùng yêu cầu, KHÔNG đồng nghĩa đã xác minh mã nguồn cấp 0. Kiểm tra nguồn cấp 0 độc lập với cấp 4; chưa xác định TK Nợ/Có và COA.')
     detail=[(r['noi_dung'],r['loai'],r['khoan'],r['nguon'],r['chuong'],r['don_vi'],r['qhns'],int(r['so_tien'])) for r in rows]
     p4=make('02_C6-01_phan_bo_cap_4_DU_THAO.xlsx','BẢNG CHUẨN BỊ PHIẾU C6-01 — PHÂN BỔ CẤP 4',
