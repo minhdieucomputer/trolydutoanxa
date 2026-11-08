@@ -2,7 +2,7 @@
   #define MyBuildDir "dist\TroLyDuToanXa"
 #endif
 #define MyAppName "Trợ lý dự toán ngân sách xã"
-#define MyAppVersion "0.8.6-beta"
+#define MyAppVersion "0.8.7-beta"
 #define MyAppExeName "TroLyDuToanXa.exe"
 [Setup]
 AppId={{A6A8DCE5-76B5-44B9-BF08-C7A9F6F1E3E4}

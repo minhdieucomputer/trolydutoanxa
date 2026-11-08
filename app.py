@@ -91,7 +91,7 @@ BUDGET_CATALOG = BudgetCatalog()
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.6')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.7')
         self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
@@ -1301,22 +1301,26 @@ class App(tk.Tk):
         ttk.Button(buttons,text='Đóng',command=win.destroy).pack(side='left',padx=8)
 
     def preview_package(self, code='C601'):
-        """Mở thẳng trang C6 như in, không mở bảng dữ liệu."""
+        """Tạo mẫu C6 trong tiến trình con để lỗi PyMuPDF không đóng giao diện."""
         if not self.batch_rows:
-            return messagebox.showwarning('Chưa có dữ liệu','Hãy đưa nghiệp vụ vào bộ phiếu trước khi xem trước.')
+            return messagebox.showwarning('Chưa có dữ liệu', 'Hãy đưa nghiệp vụ vào bộ phiếu trước khi xem trước.')
         try:
-            from print_preview import create_preview, create_c602_preview
-            expected,_,_=self.reconciliation(self.batch_rows)
-            renderer=(lambda rows, **kw: create_c602_preview(rows, **kw)) if code=='C602' else (lambda rows, **kw: create_preview(code, rows, **kw))
-            path=renderer(self.batch_rows,
+            from c6_safe_preview import generate_c6_safely
+            expected, _, _ = self.reconciliation(self.batch_rows)
+            path = generate_c6_safely(
+                code, self.batch_rows,
                 commune=self.commune_var.get().split(' | ')[0],
                 year=self.batch_meta['year'].get(),
                 decision=self.batch_meta['decision'].get(),
-                decision_date=self.batch_meta['decision_date'].get(),expected=expected)
-            if os.name=='nt': os.startfile(path)
-            else: webbrowser.open(Path(path).as_uri())
+                decision_date=self.batch_meta['decision_date'].get(),
+                expected=expected,
+            )
+            if os.name == 'nt':
+                os.startfile(str(path))
+            else:
+                webbrowser.open(Path(path).as_uri())
         except Exception as exc:
-            messagebox.showerror('Không thể xem trước mẫu C6',str(exc))
+            messagebox.showerror('Không thể xem trước mẫu C6', str(exc))
 
     def batch_edit_selected(self):
         selection=self.batch_tree.selection()
@@ -1467,4 +1471,7 @@ class App(tk.Tk):
         txt.config(state='disabled')
 
 if __name__=='__main__':
+    if '--c6-preview-worker' in sys.argv:
+        from c6_safe_preview import worker_main
+        sys.exit(worker_main(sys.argv[sys.argv.index('--c6-preview-worker') + 1:]))
     App().mainloop()
