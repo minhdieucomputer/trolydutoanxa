@@ -1,0 +1,10 @@
+KHAC PHUC LOI KHONG TIM THAY templates_pdf/C6-01_original.pdf
+
+Nguyen nhan: GitHub Actions dong goi PyInstaller thieu thu muc templates_pdf.
+Da sua: .github/workflows/build-windows-setup.yml de dong goi templates_pdf, original_pdf va cac CSV danh muc.
+
+Cach dung: Giai nen ZIP, tai TOAN BO noi dung ben trong trolydutoanxa-main len repository GitHub, ghi de file cu. Vao Actions > Build Windows installer > Run workflow. Tai artifact Setup_TroLyDuToanXa_Windows va cai dat lai.
+
+Luu y: Day la ban sua dong goi, KHONG thay doi logic giao dien hay co so du lieu. Tieu de ung dung co the van hien 0.8.1 do ma phien ban noi bo chua duoc thay doi.
+
+Kiem tra sau cai: Xem truoc C6-01, C6-02, C6-03, C6-04 va Quyết định. Kiem tra noi dung du lieu tren phieu truoc khi in.
