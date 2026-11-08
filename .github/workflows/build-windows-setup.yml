@@ -29,7 +29,32 @@ jobs:
       - name: Dong goi phan mem
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --windowed --onefile --name TroLyDuToanXa --add-data "templates;templates" --add-data "mlns_loai_khoan.csv;." app.py
+          $required = @(
+            'templates_pdf/C6-01_original.pdf',
+            'templates_pdf/C6-02_original.pdf',
+            'templates_pdf/C6-03_original.pdf',
+            'templates_pdf/C6-04_original.pdf',
+            'mlns_loai_khoan.csv',
+            'MA_LOAI_DU_TOAN_HUONG_DAN.csv',
+            'MA_NGUON_CHI_15602.csv'
+          )
+          foreach ($f in $required) {
+            if (!(Test-Path $f)) { throw "Thieu tai nguyen: $f" }
+          }
+          pyinstaller --noconfirm --clean --windowed --onedir --name TroLyDuToanXa --add-data "templates;templates" --add-data "templates_pdf;templates_pdf" --add-data "mlns_loai_khoan.csv;." --add-data "MA_LOAI_DU_TOAN_HUONG_DAN.csv;." --add-data "MA_NGUON_CHI_15602.csv;." app.py
+          if ($LASTEXITCODE -ne 0) { throw "PyInstaller that bai" }
+          $root = 'dist/TroLyDuToanXa'
+          if (!(Test-Path "$root/TroLyDuToanXa.exe")) { throw 'Thieu EXE sau build' }
+          $pdfs = Get-ChildItem -Path $root -Recurse -Filter 'C6-*_original.pdf'
+          $expected = @('C6-01_original.pdf','C6-02_original.pdf','C6-03_original.pdf','C6-04_original.pdf')
+          foreach ($name in $expected) {
+            $match = @($pdfs | Where-Object { $_.Name -eq $name })
+            if ($match.Count -ne 1) { throw "Khong tim thay dung 1 mau $name trong ban build" }
+            Write-Host "DA DONG GOI: $($match[0].FullName)"
+          }
+          Write-Host 'DA XAC NHAN DU 4 MAU C6 TRONG THU MUC PHAN MEM'
+
+
 
       - name: Tao Setup EXE
         shell: pwsh
@@ -38,7 +63,17 @@ jobs:
           if (!(Test-Path $iscc)) {
             throw "Khong tim thay Inno Setup 6"
           }
-          & $iscc installer.iss
+          $buildDir = Join-Path $env:GITHUB_WORKSPACE 'dist\TroLyDuToanXa'
+          $exe = Join-Path $buildDir 'TroLyDuToanXa.exe'
+          Write-Host "Build directory: $buildDir"
+          if (!(Test-Path -LiteralPath $exe -PathType Leaf)) { throw "Khong tim thay EXE: $exe" }
+          foreach ($name in @('C6-01_original.pdf','C6-02_original.pdf','C6-03_original.pdf','C6-04_original.pdf')) {
+            $found = @(Get-ChildItem -LiteralPath $buildDir -Recurse -File -Filter $name)
+            if ($found.Count -ne 1) { throw "Thieu hoac trung mau $name trong $buildDir" }
+          }
+          $iss = Join-Path $env:GITHUB_WORKSPACE 'installer.iss'
+          & $iscc "/DMyBuildDir=$buildDir" $iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup that bai: $LASTEXITCODE" }
 
       - name: Tai bo cai
         uses: actions/upload-artifact@v4
