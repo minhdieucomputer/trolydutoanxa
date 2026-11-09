@@ -91,7 +91,7 @@ BUDGET_CATALOG = BudgetCatalog()
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.9.2')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.9.5')
         self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
@@ -798,7 +798,7 @@ class App(tk.Tk):
         if not hasattr(self,'batch_tree'):return
         self.batch_tree.selection_remove(self.batch_tree.selection())
         for key,var in self.batch_vars.items():var.set('')
-        self.batch_vars['nguon'].set('99')
+        self.batch_vars['nguon'].set('')
         self.batch_vars['nguon_cap0'].set('99')
         self.batch_vars['qhns_cap0'].set(self.current_org_code())
         if hasattr(self,'batch_edit_status'):
@@ -923,7 +923,7 @@ class App(tk.Tk):
         self.batch_vars['tk_co']=tk.StringVar()
         self.batch_vars['nguon_cap0']=tk.StringVar(value='99')
         self.batch_vars['qhns_cap0']=tk.StringVar(value=self.current_org_code())
-        self.batch_vars['nguon'].set('99')
+        self.batch_vars['nguon'].set('')
         labels={'noi_dung':'Nội dung nhiệm vụ','loai':'Mã Loại','khoan':'Mã Khoản','nguon':'Nguồn chi tiết cấp 4','nguon_cap0':'Nguồn cấp 0','chuong':'Mã Chương','don_vi':'Đơn vị nhận','qhns':'Mã ĐVQHNS','so_tien':'Số tiền (VND)','qhns_cap0':'Mã tổ chức NS cấp 0','ma_loai_du_toan':'Mã loại dự toán','tk_no':'Tài khoản Nợ','tk_co':'Tài khoản Có'}
         for i,k in enumerate([*BATCH_FIELDS,'nguon_cap0','qhns_cap0','ma_loai_du_toan','tk_no','tk_co']):
             r=i//4;c=(i%4)*2
@@ -933,6 +933,7 @@ class App(tk.Tk):
             if k=='noi_dung':self.batch_first_widget=widget
         bar=ttk.Frame(upper);bar.pack(fill='x',pady=5)
         ttk.Button(bar,text='Thêm dòng mới',command=self.batch_add).pack(side='left')
+        ttk.Button(bar,text='GỢI Ý ĐỊNH KHOẢN 0→4',command=self.choose_allocation_accounts).pack(side='left',padx=5)
         ttk.Button(bar,text='LƯU THAY ĐỔI DÒNG',command=self.batch_update_selected).pack(side='left',padx=6)
         ttk.Button(bar,text='XÓA DÒNG',command=self.batch_remove).pack(side='left',padx=6)
         ttk.Button(bar,text='Bỏ chọn / Nhập dòng mới',command=self.batch_clear_selection).pack(side='left',padx=6)
@@ -1011,6 +1012,38 @@ class App(tk.Tk):
             return False
         return True
 
+    def choose_allocation_accounts(self):
+        """Chỉ điền sau khi người dùng chọn rõ nghiệp vụ và hình thức cấp phát."""
+        from c6_accounting import choices
+        win=tk.Toplevel(self);win.title('Chọn định khoản theo CV 15602 – mục B.II.2.2.2')
+        win.geometry('620x270');win.transient(self);win.grab_set()
+        ttk.Label(win,text='Chọn tính chất kinh phí và hình thức cấp phát:',font=('Segoe UI',11,'bold')).pack(pady=15)
+        items=choices(); labels=[x[0] for x in items]
+        choice=tk.StringVar(value=labels[0]);cb=ttk.Combobox(win,textvariable=choice,values=labels,state='readonly',width=75)
+        cb.pack(padx=15,pady=8)
+        ttk.Label(win,text='Chỉ là quy tắc tham chiếu CV 15602 (2017); cần kiểm tra hiệu lực,\nmã nguồn và tính chất kinh phí theo quyết định thực tế.',justify='center').pack(pady=10)
+        def apply():
+            for label,no,co in items:
+                if choice.get()==label:
+                    self.batch_vars['tk_no'].set(no);self.batch_vars['tk_co'].set(co);break
+            win.destroy()
+        ttk.Button(win,text='ÁP DỤNG TÀI KHOẢN NỢ/CÓ',command=apply).pack(pady=8)
+
+    def export_c6_word(self, code):
+        if not self.batch_rows:
+            return messagebox.showwarning('Chưa có dữ liệu','Hãy thêm nghiệp vụ trước khi xuất Word.')
+        from c6_word import create_c6_word
+        filename=code.replace('C6','C6-')+'_DU_THAO.docx'
+        path=filedialog.asksaveasfilename(title='Lưu chứng từ Word có thể chỉnh sửa',defaultextension='.docx',initialfile=filename,filetypes=[('Word','*.docx')])
+        if not path:return
+        try:
+            create_c6_word(path,code,self.batch_rows,
+                commune=self.commune_var.get().split(' | ')[0],year=self.batch_meta['year'].get(),
+                decision=self.batch_meta['decision'].get(),decision_date=self.batch_meta['decision_date'].get())
+            messagebox.showinfo('Đã tạo bản Word','Đã lưu bản Word có thể chỉnh sửa. Đây là bản đối chiếu, chưa phải mẫu C6 chính thức.')
+            if os.name=='nt':os.startfile(path)
+        except Exception as exc:messagebox.showerror('Không thể xuất Word',str(exc))
+
     def batch_add(self):
         from batch_export import check_rows
         row={k:(v.get().split(' – ')[0].strip() if k in ('nguon','nguon_cap0') else v.get().strip()) for k,v in self.batch_vars.items()}
@@ -1020,6 +1053,9 @@ class App(tk.Tk):
             check_rows([row])
         except (ValueError,KeyError) as e:
             return messagebox.showerror('Dữ liệu không hợp lệ',str(e))
+        from c6_accounting import check_allocation
+        try:check_allocation([row])
+        except ValueError as exc:return messagebox.showerror('Kiểm tra định khoản cấp 0 → cấp 4',str(exc))
         self.batch_rows.append(row)
         self.batch_vars['nguon_cap0'].set('99')
         self.batch_vars['qhns_cap0'].set(self.current_org_code())
@@ -1298,7 +1334,7 @@ class App(tk.Tk):
         """Chọn đúng loại chứng từ, không hiển thị bảng dữ liệu trung gian."""
         win=tk.Toplevel(self)
         win.title('Chọn mẫu phiếu / quyết định để xem trước như in')
-        win.geometry('670x405')
+        win.geometry('720x610')
         win.transient(self)
         win.grab_set()
         ttk.Label(win,text='CHỌN BIỂU MẪU XEM TRƯỚC',font=('Segoe UI',13,'bold')).pack(pady=(18,8))
@@ -1307,6 +1343,10 @@ class App(tk.Tk):
             ('C602','C6-02 – Phiếu nhập dự toán cấp 0 (tự điền số liệu)'),
             ('C603','C6-03 – Chứng từ phân bổ dự toán (mẫu gốc tham khảo)'),
             ('C604','C6-04 – Phiếu điều chỉnh dự toán (đã điền dữ liệu)'),
+            ('C601_WORD','Xuất C6-01 Word (có thể chỉnh sửa)'),
+            ('C602_WORD','Xuất C6-02 Word (có thể chỉnh sửa)'),
+            ('C603_WORD','Xuất C6-03 Word (có thể chỉnh sửa)'),
+            ('C604_WORD','Xuất C6-04 Word (có thể chỉnh sửa)'),
             ('QD','Quyết định giao dự toán và phụ lục (bản dự thảo)'),
             ('QD_WORD','Xuất Quyết định Word (UBND xã / Mẫu B / Mẫu C)'),
         ]
@@ -1318,7 +1358,9 @@ class App(tk.Tk):
         def show():
             key=chosen.get()
             win.destroy()
-            if key in ('C601','C602','C604'):
+            if key.endswith('_WORD') and key.startswith('C6'):
+                self.export_c6_word(key[:-5])
+            elif key in ('C601','C602','C604'):
                 self.preview_package(key)
             elif key=='QD':
                 self.preview_decision()
@@ -1343,6 +1385,9 @@ class App(tk.Tk):
         if not self.batch_rows:
             return messagebox.showwarning('Chưa có dữ liệu', 'Hãy đưa nghiệp vụ vào bộ phiếu trước khi xem trước.')
         try:
+            if code == 'C601':
+                from c6_accounting import check_allocation
+                check_allocation(self.batch_rows)
             from c6_safe_preview import generate_c6_safely
             expected, _, _ = self.reconciliation(self.batch_rows)
             path = generate_c6_safely(

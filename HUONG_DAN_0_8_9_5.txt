@@ -1,0 +1,9 @@
+BẢN 0.8.9.5 – PHÂN BỔ 0→4 VÀ XUẤT WORD C6
+
+1. Trong tab Bộ 3 chứng từ, nhấn GỢI Ý ĐỊNH KHOẢN 0→4 để chọn tính chất chi và hình thức cấp phát; chương trình điền TK Nợ/Có theo mục B.II.2.2.2 CV 15602/BTC-KBNN năm 2017.
+2. Khi thêm dòng, kiểm tra mã nguồn cấp 4 và cặp tài khoản Nợ/Có. Không tự điền khi thiếu thông tin.
+3. XEM TRƯỚC PHIẾU / QUYẾT ĐỊNH -> chọn C6-01/02/03/04 Word để lưu DOCX chỉnh sửa được.
+4. Word là BẢN ĐỐI CHIẾU, chưa tái tạo chính xác mẫu gốc DOC/XLS; C6-02 chưa xác định tự động TK cấp 0 từ TK cấp 4. C6-03 PDF vẫn là mẫu tham khảo.
+5. Quy tắc tham chiếu công văn năm 2017, chưa khẳng định hiệu lực cho niên độ hiện tại. Phải đối chiếu quy định hiện hành trước khi sử dụng chứng từ.
+6. Sao lưu ~/TroLyDuToanXa/du_toan_xa.sqlite3 trước khi cài phiên bản mới.
+7. Đưa mã nguồn lên GitHub và chạy Actions để tạo Setup Windows; chưa thử trực tiếp trên Windows.
