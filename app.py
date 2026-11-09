@@ -9,6 +9,8 @@ import shutil
 import webbrowser
 from urllib.parse import urlencode
 import sqlite3
+import tempfile
+import time
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
@@ -91,7 +93,7 @@ BUDGET_CATALOG = BudgetCatalog()
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.9.5')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.9.6')
         self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
@@ -114,6 +116,7 @@ class App(tk.Tk):
         self.commune_box.bind('<<ComboboxSelected>>',lambda e:self.refresh_vouchers())
         ttk.Button(choose,text='Quản lý xã/phường',command=self.manage_communes).pack(side='left')
         ttk.Button(choose,text='Sao lưu dữ liệu',command=self.backup).pack(side='left',padx=8)
+        ttk.Button(choose,text='Khôi phục dữ liệu',command=self.restore_backup).pack(side='left',padx=4)
         ttk.Button(choose,text='Thoát',command=self.safe_exit).pack(side='right')
         ttk.Button(choose,text='Gửi ý kiến phản hồi',command=self.show_feedback).pack(side='right',padx=8)
         self.protocol('WM_DELETE_WINDOW',self.safe_exit)
@@ -763,6 +766,89 @@ class App(tk.Tk):
         path=filedialog.asksaveasfilename(defaultextension='.sqlite3',filetypes=[('SQLite','*.sqlite3')],initialfile='Sao_luu_du_toan_xa.sqlite3')
         if path:
             dest=sqlite3.connect(path);self.con.backup(dest);dest.close();messagebox.showinfo('Đã sao lưu',path)
+
+    def restore_backup(self):
+        """Khôi phục toàn bộ SQLite; lưu bản dự phòng tự động trước khi thay thế."""
+        source = filedialog.askopenfilename(
+            title='Chọn tệp dữ liệu SQLite đã sao lưu',
+            filetypes=[('Dữ liệu sao lưu SQLite', '*.sqlite3 *.db *.sqlite'), ('Tất cả tệp', '*.*')],
+            parent=self)
+        if not source:
+            return
+        src = Path(source)
+        if src.resolve() == DB.resolve():
+            return messagebox.showwarning('Không thể khôi phục',
+                'Bạn đang chọn chính cơ sở dữ liệu đang sử dụng. Hãy chọn tệp sao lưu khác.', parent=self)
+        try:
+            # Mở ở chế độ chỉ đọc để tránh tự tạo tệp trống.
+            check = sqlite3.connect(src.as_uri() + '?mode=ro', uri=True)
+            try:
+                result = check.execute('PRAGMA integrity_check').fetchone()[0]
+                if result != 'ok':
+                    raise ValueError('Tệp sao lưu không toàn vẹn: ' + str(result))
+                tables = {r[0] for r in check.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                if not {'communes', 'vouchers'}.issubset(tables):
+                    raise ValueError('Tệp không chứa đủ bảng communes và vouchers của phần mềm.')
+                cols = {r[1] for r in check.execute('PRAGMA table_info(vouchers)')}
+                needed = {'id','commune_id','year','date','kind','description','amount','account_debit','account_credit'}
+                if not needed.issubset(cols):
+                    raise ValueError('Cấu trúc dữ liệu sao lưu không tương thích với phần mềm.')
+                counts = (check.execute('SELECT COUNT(*) FROM communes').fetchone()[0],
+                          check.execute('SELECT COUNT(*) FROM vouchers').fetchone()[0])
+            finally:
+                check.close()
+        except Exception as exc:
+            return messagebox.showerror('Không đọc được sao lưu', str(exc), parent=self)
+
+        if not messagebox.askyesno('Xác nhận khôi phục dữ liệu',
+            f'Tệp: {src.name}\nSố xã/phường: {counts[0]}\nSố chứng từ: {counts[1]}\n\n'
+            'KHÔI PHỤC SẼ THAY THẾ TOÀN BỘ dữ liệu hiện tại (không gộp).\n'
+            'Phần mềm sẽ tự sao lưu dữ liệu hiện tại trước khi thay thế.\n\nBạn muốn tiếp tục?',
+            icon='warning', parent=self):
+            return
+        safety = APP_DIR / ('Truoc_khoi_phuc_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.sqlite3')
+        stage = None
+        closed = False
+        replaced = False
+        try:
+            # Backup qua SQLite API để bao gồm dữ liệu đang ở WAL và chưa checkpoint.
+            with sqlite3.connect(safety) as dest:
+                self.con.backup(dest)
+            fd, temp_name = tempfile.mkstemp(prefix='restore_', suffix='.sqlite3', dir=APP_DIR)
+            os.close(fd)
+            stage = Path(temp_name)
+            with sqlite3.connect(src.as_uri() + '?mode=ro', uri=True) as original:
+                with sqlite3.connect(stage) as dest:
+                    original.backup(dest)
+            self.con.close()
+            closed = True
+            # Đảm bảo tệp WAL cũ không còn trước khi đổi dữ liệu.
+            for suffix in ('-wal', '-shm'):
+                (APP_DIR / (DB.name + suffix)).unlink(missing_ok=True)
+            os.replace(stage, DB)
+            replaced = True
+            self.con = connect()  # Tự bổ sung cột mới khi mở bản sao lưu cũ.
+            closed = False
+            self.refresh_communes()
+            messagebox.showinfo('Khôi phục thành công',
+                f'Đã khôi phục {counts[0]} xã/phường và {counts[1]} chứng từ.\n\n'
+                f'Bản sao dữ liệu trước khi khôi phục:\n{safety}\n\n'
+                'Lưu ý: Các dòng bộ chứng từ chưa được lưu vào SQLite không nằm trong tệp sao lưu.', parent=self)
+        except Exception as exc:
+            if closed or replaced:
+                try:
+                    if not closed:
+                        self.con.close()
+                    shutil.copy2(safety, DB)
+                    self.con = connect()
+                    self.refresh_communes()
+                except Exception:
+                    pass
+            messagebox.showerror('Khôi phục không thành công',
+                f'{exc}\n\nBản dự phòng dữ liệu cũ (nếu đã tạo):\n{safety}', parent=self)
+        finally:
+            if stage is not None:
+                stage.unlink(missing_ok=True)
 
     def current_org_code(self):
         """Mã tổ chức ngân sách của xã đang chọn, không suy diễn từ mã QHNS."""

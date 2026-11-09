@@ -1,0 +1,12 @@
+PHIÊN BẢN 0.8.9.6 – KHÔI PHỤC DỮ LIỆU ĐÃ SAO LƯU
+
+1. Trong cửa sổ chính, chọn nút "Khôi phục dữ liệu" cạnh nút "Sao lưu dữ liệu".
+2. Chọn tệp .sqlite3 đã sao lưu trước đây.
+3. Phần mềm kiểm tra tính toàn vẹn và cấu trúc tệp, hiện số xã/phường và chứng từ.
+4. Xác nhận thay thế toàn bộ dữ liệu hiện tại. Đây KHÔNG PHẢI chức năng gộp dữ liệu.
+5. Phần mềm tự tạo bản sao an toàn "Truoc_khoi_phuc_...sqlite3" trong ~/TroLyDuToanXa trước khi thay thế.
+6. Sau khi khôi phục, danh sách xã/phường và chứng từ được nạp lại.
+
+LƯU Ý: Bộ 3 chứng từ / Phụ lục QĐ đang nhập nhưng chưa lưu vào SQLite không nằm trong dữ liệu sao lưu.
+Không xóa các tệp "Truoc_khoi_phuc_...sqlite3" cho tới khi kiểm tra dữ liệu khôi phục.
+Chưa thử trực tiếp trên Windows; cần kiểm thử bằng dữ liệu sao lưu mẫu trước khi dùng chính thức.
