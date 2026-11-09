@@ -93,7 +93,7 @@ BUDGET_CATALOG = BudgetCatalog()
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.9.6')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.9.7')
         self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
@@ -807,48 +807,53 @@ class App(tk.Tk):
             icon='warning', parent=self):
             return
         safety = APP_DIR / ('Truoc_khoi_phuc_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.sqlite3')
-        stage = None
-        closed = False
-        replaced = False
         try:
-            # Backup qua SQLite API để bao gồm dữ liệu đang ở WAL và chưa checkpoint.
-            with sqlite3.connect(safety) as dest:
+            # SQLite Online Backup API: không thay thế tệp đang bị Windows khóa.
+            self.con.commit()
+            dest = sqlite3.connect(safety)
+            try:
                 self.con.backup(dest)
-            fd, temp_name = tempfile.mkstemp(prefix='restore_', suffix='.sqlite3', dir=APP_DIR)
-            os.close(fd)
-            stage = Path(temp_name)
-            with sqlite3.connect(src.as_uri() + '?mode=ro', uri=True) as original:
-                with sqlite3.connect(stage) as dest:
-                    original.backup(dest)
+            finally:
+                dest.close()
+            original = sqlite3.connect(src.as_uri() + '?mode=ro', uri=True)
+            try:
+                original.backup(self.con)
+            finally:
+                original.close()
+            self.con.commit()
+            result = self.con.execute('PRAGMA integrity_check').fetchone()[0]
+            if result != 'ok':
+                raise RuntimeError('Dữ liệu sau khôi phục không toàn vẹn: ' + str(result))
             self.con.close()
-            closed = True
-            # Đảm bảo tệp WAL cũ không còn trước khi đổi dữ liệu.
-            for suffix in ('-wal', '-shm'):
-                (APP_DIR / (DB.name + suffix)).unlink(missing_ok=True)
-            os.replace(stage, DB)
-            replaced = True
-            self.con = connect()  # Tự bổ sung cột mới khi mở bản sao lưu cũ.
-            closed = False
+            self.con = connect()
             self.refresh_communes()
             messagebox.showinfo('Khôi phục thành công',
                 f'Đã khôi phục {counts[0]} xã/phường và {counts[1]} chứng từ.\n\n'
                 f'Bản sao dữ liệu trước khi khôi phục:\n{safety}\n\n'
                 'Lưu ý: Các dòng bộ chứng từ chưa được lưu vào SQLite không nằm trong tệp sao lưu.', parent=self)
         except Exception as exc:
-            if closed or replaced:
+            rollback_error = None
+            if safety.exists():
                 try:
-                    if not closed:
-                        self.con.close()
-                    shutil.copy2(safety, DB)
+                    try:
+                        self.con.rollback()
+                        self.con.execute('SELECT 1')
+                    except sqlite3.Error:
+                        self.con = sqlite3.connect(DB)
+                    previous = sqlite3.connect(safety.as_uri() + '?mode=ro', uri=True)
+                    try:
+                        previous.backup(self.con)
+                    finally:
+                        previous.close()
+                    self.con.close()
                     self.con = connect()
                     self.refresh_communes()
-                except Exception:
-                    pass
-            messagebox.showerror('Khôi phục không thành công',
-                f'{exc}\n\nBản dự phòng dữ liệu cũ (nếu đã tạo):\n{safety}', parent=self)
-        finally:
-            if stage is not None:
-                stage.unlink(missing_ok=True)
+                except Exception as restore_exc:
+                    rollback_error = restore_exc
+            message = f'{exc}\n\nBản dự phòng dữ liệu cũ:\n{safety}'
+            if rollback_error:
+                message += f'\n\nKhông thể tự khôi phục dữ liệu cũ: {rollback_error}. Hãy giữ nguyên file dự phòng.'
+            messagebox.showerror('Khôi phục không thành công', message, parent=self)
 
     def current_org_code(self):
         """Mã tổ chức ngân sách của xã đang chọn, không suy diễn từ mã QHNS."""
