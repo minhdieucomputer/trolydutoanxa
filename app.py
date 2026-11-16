@@ -93,7 +93,7 @@ BUDGET_CATALOG = BudgetCatalog()
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.9.7')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.9.8')
         self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
@@ -125,8 +125,9 @@ class App(tk.Tk):
         self.tab_history=ttk.Frame(self.tabs,padding=12); self.tabs.add(self.tab_history,text='Lịch sử / Xuất phiếu')
         self.tab_catalog=ttk.Frame(self.tabs,padding=12); self.tabs.add(self.tab_catalog,text='Tra cứu MLNS / Gợi ý mã ngành')
         self.tab_batch=ttk.Frame(self.tabs,padding=12); self.tabs.add(self.tab_batch,text='Bộ 3 chứng từ / Phụ lục QĐ')
+        self.tab_legal=ttk.Frame(self.tabs,padding=12); self.tabs.add(self.tab_legal,text='Tra cứu nghiệp vụ / Văn bản')
         self.tab_guide=ttk.Frame(self.tabs,padding=12); self.tabs.add(self.tab_guide,text='Hướng dẫn hạch toán')
-        self.make_entry(); self.apply_origin(); self.make_history(); self.make_catalog(); self.make_batch(); self.make_guide(); self.refresh_communes()
+        self.make_entry(); self.apply_origin(); self.make_history(); self.make_catalog(); self.make_batch(); self.make_guide(); self.make_legal_search(); self.refresh_communes()
 
     def show_feedback(self):
         """Soạn phản hồi trên máy; chỉ mở ứng dụng email khi người dùng xác nhận."""
@@ -1637,6 +1638,54 @@ class App(tk.Tk):
             except Exception as exc:messagebox.showerror('Loi xuat',str(exc),parent=win)
         ttk.Button(win,text='Xem trước dữ liệu cho các mẫu đã chọn',command=lambda:self._preview_rows(rows,'Xem trước bộ chứng từ')).pack(pady=6)
         ttk.Button(win,text='Xuất các bảng DỰ THẢO Excel đã chọn',command=go).pack(pady=8)
+
+    def make_legal_search(self):
+        from legal_search import LIBRARY, import_file, search, list_files, install_seed
+        install_seed()
+        pane=self.tab_legal
+        ttk.Label(pane,text='TRA CỨU NGHIỆP VỤ TỪ VĂN BẢN ĐÃ TẢI LÊN',font=('Segoe UI',13,'bold')).pack(anchor='w',pady=(0,8))
+        ttk.Label(pane,text='Tìm kiếm ngoại tuyến, hiển thị nguyên văn và nguồn. Kết quả là gợi ý tra cứu, KHÔNG tự xác nhận định khoản.',wraplength=1100).pack(anchor='w')
+        row=ttk.Frame(pane);row.pack(fill='x',pady=9)
+        self.legal_query=tk.StringVar()
+        ttk.Entry(row,textvariable=self.legal_query,font=('Segoe UI',11)).pack(side='left',fill='x',expand=True,padx=(0,8))
+        ttk.Button(row,text='Tra cứu',command=self.legal_run_search).pack(side='left',padx=3)
+        ttk.Button(row,text='Tải văn bản PDF / Word',command=self.legal_add_document).pack(side='left',padx=3)
+        ttk.Button(row,text='Mở thư mục văn bản',command=lambda:os.startfile(str(LIBRARY)) if os.name=='nt' else messagebox.showinfo('Thư mục',str(LIBRARY))).pack(side='left',padx=3)
+        ttk.Label(pane,text='Ví dụ: dự phòng ngân sách; phân bổ dự toán xã cấp 0 cấp 4; dự toán tạm ứng; chi chuyển giao',foreground='#555').pack(anchor='w')
+        self.legal_info=tk.StringVar()
+        ttk.Label(pane,textvariable=self.legal_info).pack(anchor='w',pady=6)
+        self.legal_output=tk.Text(pane,wrap='word',font=('Segoe UI',10),padx=12,pady=10)
+        scroll=ttk.Scrollbar(pane,command=self.legal_output.yview)
+        self.legal_output.configure(yscrollcommand=scroll.set)
+        scroll.pack(side='right',fill='y');self.legal_output.pack(fill='both',expand=True)
+        self.legal_output.insert('end','Hãy tải văn bản PDF, DOCX hoặc TXT, sau đó nhập diễn giải để tìm kiếm.\nFile .doc đời cũ cần chuyển sang .docx bằng Microsoft Word.\n')
+        self.legal_output.config(state='disabled')
+        self.legal_info.set(f'Đã có {len(list_files())} văn bản trong thư viện: {LIBRARY}')
+
+    def legal_add_document(self):
+        from legal_search import import_file, list_files
+        paths=filedialog.askopenfilenames(title='Chọn văn bản pháp lý',filetypes=[('Văn bản','*.pdf *.docx *.txt *.doc'),('Tất cả','*.*')])
+        if not paths:return
+        ok=[];errors=[]
+        for path in paths:
+            try:ok.append(import_file(path).name)
+            except Exception as exc:errors.append(f'{Path(path).name}: {exc}')
+        self.legal_info.set(f'Đã có {len(list_files())} văn bản. Vừa thêm: {len(ok)}')
+        if errors:messagebox.showwarning('Một số văn bản chưa nhập được','\n'.join(errors[:12]))
+        elif ok:messagebox.showinfo('Đã thêm văn bản','\n'.join(ok[:12]))
+
+    def legal_run_search(self):
+        from legal_search import search, list_files
+        query=self.legal_query.get().strip()
+        if not query:messagebox.showwarning('Thiếu diễn giải','Hãy nhập nội dung nghiệp vụ cần tra cứu.');return
+        self.legal_output.config(state='normal');self.legal_output.delete('1.0','end')
+        results=search(query)
+        self.legal_info.set(f'Tìm thấy {len(results)} đoạn phù hợp trong {len(list_files())} văn bản (tối đa 25 kết quả)')
+        if not results:self.legal_output.insert('end','Chưa tìm thấy nội dung phù hợp. Kiểm tra thư viện văn bản hoặc thử từ khóa ngắn hơn.\n')
+        for i,(score,filename,location,excerpt) in enumerate(results,1):
+            self.legal_output.insert('end',f'{i}. VĂN BẢN: {filename} | {location} | mức khớp từ khóa: {score}\n{excerpt}\n\n'+('-'*70)+'\n\n')
+        self.legal_output.insert('end','LƯU Ý: Trích đoạn chỉ phục vụ tra cứu; cần kiểm tra toàn văn, tình trạng hiệu lực và điều kiện nghiệp vụ trước khi áp dụng tài khoản Nợ/Có.\n')
+        self.legal_output.config(state='disabled')
 
     def make_guide(self):
         txt=tk.Text(self.tab_guide,wrap='word',font=('Segoe UI',11),padx=15,pady=12)

@@ -1,0 +1,10 @@
+PHIEN BAN 0.8.9.8 - TRA CUU NGHIEP VU THEO VAN BAN
+
+1. Tab moi: Tra cuu nghiep vu / Van ban.
+2. Co san noi dung van ban CV 15602/BTC-KBNN 17/11/2017 (chuyen thanh TXT tu ban DOC nguoi dung cung cap).
+3. Nhap dien giai, vi du 'du phong ngan sach', bam Tra cuu de xem doan van ban khop va ten nguon.
+4. Bam Tai van ban PDF / Word de them PDF co lop chu, DOCX, TXT. DOC cu can Save As DOCX trong Word.
+5. Van ban duoc luu tai ~/TroLyDuToanXa/VanBanNghiepVu, khong mat khi cap nhat phan mem.
+6. Ket qua tim kiem theo tu khoa, KHONG phai AI xac nhan dinh khoan; can doi chieu nghiep vu, trang thai hieu luc van ban.
+7. Khong thay doi co so du lieu SQLite, khong can can thiep du lieu sao luu.
+8. Cap nhat GitHub va chay Actions de tao Setup.
