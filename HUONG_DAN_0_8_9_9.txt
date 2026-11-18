@@ -1,0 +1,10 @@
+PHIÊN BẢN 0.8.9.9 – GỢI Ý ĐỊNH KHOẢN KHI TRA CỨU NGHIỆP VỤ
+
+Vào tab Tra cứu nghiệp vụ / Văn bản, gõ "chuyển nguồn", bấm Tra cứu.
+Ứng dụng hiện gợi ý Nợ 9239 / Có 9111, mã nhiệm vụ chi 434, CHỈ cho trường hợp nhập dự toán cấp 0 của nhiệm vụ chi chuyển nguồn sang năm sau.
+Nếu gõ "dự toán năm trước chuyển sang", ứng dụng không dùng cặp định khoản trên và báo cần xác định nghiệp vụ.
+Các quy tắc dự phòng và chuyển giao có điều kiện cũng được hiển thị.
+
+Nguồn: Công văn 15602/BTC-KBNN ngày 17/11/2017. Chưa kiểm chứng hiệu lực, sửa đổi năm 2026; cần đối chiếu trước khi hạch toán.
+Đây là gợi ý, không tự ghi sổ, không thay đổi dữ liệu SQLite.
+Giữ nguyên tính năng tìm kiếm đoạn văn bản và nhập thêm tài liệu.

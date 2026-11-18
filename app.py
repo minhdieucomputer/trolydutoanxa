@@ -93,7 +93,7 @@ BUDGET_CATALOG = BudgetCatalog()
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.9.8')
+        self.title('TRỢ LÝ DỰ TOÁN NGÂN SÁCH XÃ — 0.8.9.9')
         self.geometry('1350x870')
         self.minsize(960, 640)
         self.con = connect()
@@ -329,6 +329,22 @@ class App(tk.Tk):
             self.vars['sector_type'].set('');self.vars['sector_item'].set('')
             self._auto_suggestion['sector']=None
         self.apply_origin()
+        # Gợi ý định khoản trực tiếp tại ô Diễn giải, không chỉ ở tab Tra cứu.
+        from accounting_lookup import suggest, format_suggestions
+        suggestions_account = suggest(desc)
+        if suggestions_account:
+            kind = self.vars['kind'].get().strip()
+            # Chỉ tự điền khi đã chọn đúng nghiệp vụ nhập cấp 0, không ghi đè tài khoản khác.
+            eligible = kind == 'Nhập dự toán cấp 0'
+            if eligible and len(suggestions_account) == 1:
+                item = suggestions_account[0]
+                if item['debit'].isdigit() and item['credit'].isdigit():
+                    current_d = self.vars['account_debit'].get().strip()
+                    current_c = self.vars['account_credit'].get().strip()
+                    if not current_d or (current_d, current_c) == ('9213','9111'):
+                        self.vars['account_debit'].set(item['debit'])
+                        self.vars['account_credit'].set(item['credit'])
+            self.set_guidance(format_suggestions(desc) + '\n' + self.guidance.get('1.0','end').strip())
         self.refresh_review_flags()
         if matches:
             score,loai,khoan,name,_=matches[0]
@@ -1651,7 +1667,7 @@ class App(tk.Tk):
         ttk.Button(row,text='Tra cứu',command=self.legal_run_search).pack(side='left',padx=3)
         ttk.Button(row,text='Tải văn bản PDF / Word',command=self.legal_add_document).pack(side='left',padx=3)
         ttk.Button(row,text='Mở thư mục văn bản',command=lambda:os.startfile(str(LIBRARY)) if os.name=='nt' else messagebox.showinfo('Thư mục',str(LIBRARY))).pack(side='left',padx=3)
-        ttk.Label(pane,text='Ví dụ: dự phòng ngân sách; phân bổ dự toán xã cấp 0 cấp 4; dự toán tạm ứng; chi chuyển giao',foreground='#555').pack(anchor='w')
+        ttk.Label(pane,text='Ví dụ: chuyển nguồn; nhập dự toán chuyển nguồn sang năm sau; dự toán năm trước chuyển sang; dự phòng; chi chuyển giao',foreground='#555').pack(anchor='w')
         self.legal_info=tk.StringVar()
         ttk.Label(pane,textvariable=self.legal_info).pack(anchor='w',pady=6)
         self.legal_output=tk.Text(pane,wrap='word',font=('Segoe UI',10),padx=12,pady=10)
@@ -1676,9 +1692,11 @@ class App(tk.Tk):
 
     def legal_run_search(self):
         from legal_search import search, list_files
+        from accounting_lookup import format_suggestions
         query=self.legal_query.get().strip()
         if not query:messagebox.showwarning('Thiếu diễn giải','Hãy nhập nội dung nghiệp vụ cần tra cứu.');return
         self.legal_output.config(state='normal');self.legal_output.delete('1.0','end')
+        self.legal_output.insert('end',format_suggestions(query) + '\n' + '='*70 + '\n\n')
         results=search(query)
         self.legal_info.set(f'Tìm thấy {len(results)} đoạn phù hợp trong {len(list_files())} văn bản (tối đa 25 kết quả)')
         if not results:self.legal_output.insert('end','Chưa tìm thấy nội dung phù hợp. Kiểm tra thư viện văn bản hoặc thử từ khóa ngắn hơn.\n')
